@@ -14,6 +14,7 @@ layout(push_constant) uniform Push {
         //double centerYhi, centerYlo;
         int findex, cindex;
         int maxIterations;
+        float pow;
 } pc;
 int MAX_ITER = pc.maxIterations;
 float burningShip();
@@ -27,7 +28,6 @@ float boxTrap();
 float ikeda();
 float henon();
 float lissajous();
-float newFractal();
 
 vec2 resolution = vec2(pc.width, pc.height);
 
@@ -122,14 +122,14 @@ dvec2 screenCoordD()
 
 float newton()
 {
-    //const int    MAX_ITER = 50;
+    int maxIter = int(ceil(float(MAX_ITER/5.0f)));
     const double EPS     = 1e-6;
 
     dvec2 z = screenCoordD() * double(pc.zoom) +
               dvec2(pc.centerX, pc.centerY);
 
     int i;
-    for (i = 0; i < MAX_ITER; i++) {
+    for (i = 0; i < maxIter; i++) {
         // f(z) = z^3 - 1
         dvec2 z2 = dvec2(z.x*z.x - z.y*z.y, 2.0*z.x*z.y);
         dvec2 z3 = dvec2(z2.x*z.x - z2.y*z.y,
@@ -369,17 +369,29 @@ float julia(dvec2 c)
     return float(clamp(mu / double(MAX_ITER), 0.0, 1.0));
 }
 
+float remapLinear(float t, float minT, float maxT)
+{
+    if (maxT <= minT) return 0.0;
+    return clamp((t - minT) / (maxT - minT), 0.0, 1.0);
+}
+
+float remapPower(float t, float minT, float maxT, float power)
+{
+    float x = remapLinear(t, minT, maxT);
+    return pow(x, power);
+}
+
 void main() //|||||||||||||||||||||||||||||MAIN|||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 {
     float v;
 
-    int findex = pc.findex % 22;
-    int cindex = pc.cindex % 5;
+    int findex = pc.findex % 14;
+    int cindex = pc.cindex % 4;
 
     switch(findex){
     //case -1: v = doubleMand(); break;
     case 0: v = mand(); break;
-    case 1: v = julia(dvec2(0.3, 0.7)); break;
+    case 1: v = julia(dvec2(-0.835, 0.2321)); break;
     case 2: v = burningShip(); break;
     case 3: v = tricorn(); break;
     case 4: v = mandOrbitTrap(); break;
@@ -392,10 +404,10 @@ void main() //|||||||||||||||||||||||||||||MAIN|||||||||||||||||||||||||||||||||
     case 11: v = ikeda(); break;
     case 12: v = henon(); break;
     case 13: v = lissajous(); break;
-    case 14: v = newFractal(); break;
-    case 20: v = hash(screenCoord() * hash(vec2(pc.time,0.7))); break;
+    //case 20: v = hash(screenCoord() * hash(vec2(pc.time,0.7))); break;
     default: outColor = vec4(1.0,0.0,0.0,1.0); return;
     }
+    v = remapPower(v, 0.0, 1.0, pc.pow);
     switch(cindex){
     case 0: outColor = vec4(vec3(v), 1.0); break; //grayscale
     case 1: outColor = vec4(brightnessToColor(v,0.0,1.0), 1.0); break; //custom
@@ -604,10 +616,4 @@ float lissajous()
     float x = sin(3.0*p.x + pc.time);
     float y = sin(4.0*p.y);
     return 0.5 + 0.5*x*y;
-}
-
-float newFractal()
-{
-    // Placeholder for additional fractal implementations
-    return 0.0;
 }

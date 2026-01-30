@@ -42,6 +42,7 @@ struct PushConstants {
                 int findex;
                 int cindex;
 				int maxIterations;
+                float pow;
                 //double zoomhi, zoomlo;
 				//double centerXhi, centerXlo;
 				//double centerYhi, centerYlo;
@@ -177,7 +178,7 @@ int main()
     	// --- Window ---
 	if (SDL_Init(SDL_INIT_VIDEO) != 0){SDL_Log("SDL_Init failed: %s", SDL_GetError()); return -1;}
 	SDL_Window* window = SDL_CreateWindow("VulkanTest", SDL_WINDOWPOS_CENTERED,
-		SDL_WINDOWPOS_CENTERED, windowWidth, windowHeight, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN);
+		SDL_WINDOWPOS_CENTERED, windowWidth, windowHeight, SDL_WINDOW_VULKAN | /*SDL_WINDOW_RESIZABLE |*/ SDL_WINDOW_SHOWN);
 	if (!window){SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError()); return -1;}
 
 	double zoom = 1.5;
@@ -447,8 +448,9 @@ createInfo.ppEnabledLayerNames = layers;
 	double fpsTimer = 0.0;
 	int frameNum = 0;
     int findex = 0;
-    int cindex = 0;
+    int cindex = 1;
 	int maxIterations = 256;
+    float pow = 1;
 	bool running = true;
 	while (running)
 	{
@@ -489,6 +491,7 @@ createInfo.ppEnabledLayerNames = layers;
 		pc.findex = findex;
 		pc.cindex = cindex;
 		pc.maxIterations = maxIterations;
+		pc.pow = pow;
         /*pc.zoomhi = (double)zoom_acc;
         pc.zoomlo = (double)(zoom_acc - (long double)pc.zoomhi);
         pc.centerXhi = (double)centerX_acc;
@@ -535,55 +538,64 @@ createInfo.ppEnabledLayerNames = layers;
     		while (SDL_PollEvent(&e))
 		{
 			switch(e.type){
-        			case SDL_QUIT: running = false; break;
-				case SDL_WINDOWEVENT:{
+        		case SDL_QUIT: running = false; break;
+				/*case SDL_WINDOWEVENT:{
     					if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED){
 					windowWidth  = e.window.data1;
         				windowHeight = e.window.data2;
         				framebufferResized = true;
     					}
     					break;
-				}
+				}*/
                 case SDL_MOUSEWHEEL:
                 {
-                    int mx, my; // Get mouse position in window pixels
+                    int mx, my;
                     SDL_GetMouseState(&mx, &my);
-
-                    // Use plain double math (drop long-double accumulators)
                     double prevZoom = zoom;
-                    double zoomFactor = (e.wheel.y > 0) ? 0.9 : 1.1; // Zoom factor
+                    double zoomFactor = (e.wheel.y > 0) ? 0.9 : 1.1;
                     zoom *= zoomFactor;
-
-                    // normalized coordinates (-1..1) with aspect correction
                     double nx = (2.0 * mx / (double)windowWidth - 1.0);
                     double ny = (2.0 * my / (double)windowHeight - 1.0);
                     double aspect = (double)windowWidth / (double)windowHeight;
                     nx *= aspect;
-
-                    // world-space delta applied in double precision
                     double scale = prevZoom - zoom;
                     centerX += nx * scale;
                     centerY += ny * scale;
                     break;
                 }
-                case SDL_MOUSEBUTTONDOWN:
+                /*case SDL_MOUSEBUTTONDOWN:
                 {
-                        int mx = e.button.x;
-                        int my = e.button.y;
+                    int mx = e.button.x;
+                    int my = e.button.y;
+                    int button = e.button.button; // SDL_BUTTON_LEFT, SDL_BUTTON_RIGHT, etc.
+
+                    // Choose zoom direction once (will repeat while held)
+                    double zoomFactor = 1.0;
+                    if (button == SDL_BUTTON_LEFT)  zoomFactor = 0.9;  // zoom in
+                    else if (button == SDL_BUTTON_RIGHT) zoomFactor = 1.1; // zoom out
+
+                    // Repeat while the same mouse button remains pressed.
+                    // Use SDL_GetMouseState to poll the current mouse button state and position.
+                    int curX = mx, curY = my;
+                    while (SDL_GetMouseState(&curX, &curY) & SDL_BUTTON(button)) {
                         double prevZoom = zoom;
-                        double zoomFactor = 1.0;
-                        if (e.button.button == SDL_BUTTON_LEFT) zoomFactor = 0.9;   // zoom in
-                        else if (e.button.button == SDL_BUTTON_RIGHT) zoomFactor = 1.1; // zoom out
                         zoom *= zoomFactor;
-                        double nx = (2.0 * mx / (double)windowWidth - 1.0);
-                        double ny = (2.0 * my / (double)windowHeight - 1.0);
+
+                        double nx = (2.0 * curX / (double)windowWidth - 1.0);
+                        double ny = (2.0 * curY / (double)windowHeight - 1.0);
                         double aspect = (double)windowWidth / (double)windowHeight;
                         nx *= aspect;
+
                         double scale = prevZoom - zoom;
                         centerX += nx * scale;
                         centerY += ny * scale;
-                        break;
-                }
+
+                        // Let SDL update event state (so release will be observed) and avoid starving the CPU.
+                        SDL_PumpEvents();
+                        SDL_Delay(16); // ~60Hz repeat rate
+                    }
+                    break;
+                }*/
                 case SDL_KEYDOWN: {
                     SDL_Keycode k = e.key.keysym.sym;
                     if (k == SDLK_F11) {
@@ -609,9 +621,37 @@ createInfo.ppEnabledLayerNames = layers;
                     else if (k == SDLK_EQUALS || k == SDLK_KP_PLUS) {
                         maxIterations ++;
                     }
+                    else if (k == SDLK_COMMA) {
+                        if (pow <= 1)
+                        {
+                            pow *= 0.8f;
+                        }
+                        else {
+                            pow -= 1.0f;
+                        }
+                    }
+                    else if (k == SDLK_PERIOD) {
+                        if (pow < 1)
+                        {
+                            pow /= 0.8f;
+                        }
+                        else {
+                            pow = floor(pow) + 1;
+                        }
+                    }
+                    else if (k == SDLK_HOME) {
+                        zoom = 1.5;
+                        centerX = -0.75;
+                        centerY = 0.0;
+						pow = 1.0f;
+						maxIterations = 256;
+					}
+                    else if (k == SDLK_ESCAPE) {
+                        running = false;
+					}
                     break;
                 }
-    			}
+    		}
 		}
 		if (framebufferResized) {
     			vkDeviceWaitIdle(device);
@@ -632,7 +672,7 @@ createInfo.ppEnabledLayerNames = layers;
     			frames = 0;
     			fpsTimer = 0.0;
 			char title[128];
-			snprintf(title, sizeof(title), "Test — FPS = %.1f, Index = %.1u, Pallete = %.1u, MaxI = %.1u Time = %.1f Zoom = %.9g, x = %.9g, y = %.9g", fps, pc.findex, pc.cindex, pc.maxIterations, pc.time, (double)pc.zoom,  (double)pc.centerX, (double)pc.centerY);
+			snprintf(title, sizeof(title), "Test — FPS = %.1f, Index = %.1u, Pallete = %.1u, MaxI = %.1u Scale = %.9g Time = %.1f Zoom = %.9g, x = %.9g, y = %.9g", fps, findex, cindex, maxIterations, pow, pc.time, (double)zoom, (double)centerX, (double)centerY);
 			SDL_SetWindowTitle(window, title);
 		}
 	}
