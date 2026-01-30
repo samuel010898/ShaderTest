@@ -1,6 +1,6 @@
 # Shader Test
 
-Drop everything in one folder and run
+Shader program that does some stuff
 
 ## Controls
 
