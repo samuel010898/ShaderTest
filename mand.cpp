@@ -11,8 +11,8 @@
 #include <sstream>
 
 bool framebufferResized = false;
-uint32_t windowWidth  = 1200;
-uint32_t windowHeight = 650;
+uint32_t windowWidth  = 1250;
+uint32_t windowHeight = 670;
 int initTime = 0.0;
 
 VkDevice device;
@@ -42,9 +42,9 @@ struct PushConstants {
                 int findex;
                 int cindex;
 				int maxIterations;
-                //double zoom_hi, zoom_lo;
-				//double centerX_hi, centerX_lo;
-				//double centerY_hi, centerY_lo;
+                //double zoomhi, zoomlo;
+				//double centerXhi, centerXlo;
+				//double centerYhi, centerYlo;
 };
 
 std::vector<char> readFile(const std::string &filename) {
@@ -172,8 +172,8 @@ int main()
 	dyn.dynamicStateCount = 2;
 	dyn.pDynamicStates = dynamics;
 
-	std::ofstream log("trace.log", std::ios::app);
-	log << "main() start" << std::endl;
+	//std::ofstream log("trace.log", std::ios::app);
+	//log << "main() start" << std::endl;
     	// --- Window ---
 	if (SDL_Init(SDL_INIT_VIDEO) != 0){SDL_Log("SDL_Init failed: %s", SDL_GetError()); return -1;}
 	SDL_Window* window = SDL_CreateWindow("VulkanTest", SDL_WINDOWPOS_CENTERED,
@@ -183,6 +183,12 @@ int main()
 	double zoom = 1.5;
 	double centerX = -0.75;
 	double centerY =  0.0;
+	//double centerXhi, centerXlo = 0.0;
+	//double centerYhi, centerYlo = 0.0;
+	//double zoomhi, zoomlo = 0.0;
+    //long double zoom_acc = (long double)zoom;
+    //long double centerX_acc = (long double)centerX;
+    //long double centerY_acc = (long double)centerY;
 
     // --- Vulkan Instance ---
     VkInstance instance;
@@ -191,7 +197,7 @@ int main()
     appInfo.pApplicationName = "MinimalShader";
     appInfo.applicationVersion = VK_MAKE_VERSION(1,0,0);
     appInfo.apiVersion = VK_API_VERSION_1_0;
-log << "1" << std::endl;
+//log << "1" << std::endl;
 unsigned int extCount = 0;
 if (!SDL_Vulkan_GetInstanceExtensions(window, &extCount, nullptr))
     throw std::runtime_error("Failed to get SDL Vulkan extensions count");
@@ -207,16 +213,16 @@ if (!SDL_Vulkan_GetInstanceExtensions(window, &extCount, extensions.data()))
 createInfo.enabledExtensionCount = extCount;
 createInfo.ppEnabledExtensionNames = extensions.data();
 
-log << "2" << std::endl;
+//log << "2" << std::endl;
     	if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) throw std::runtime_error("Failed to create Vulkan instance!");
-log << "3" << std::endl;
+//log << "3" << std::endl;
 	if (!SDL_Vulkan_CreateSurface(window, instance, &surface)) throw std::runtime_error("Failed to create Vulkan surface");
-log << "5" << std::endl;
+//log << "5" << std::endl;
 	uint32_t physicalCount = 0;
-log << "6" << std::endl;
+//log << "6" << std::endl;
 	vkEnumeratePhysicalDevices(instance, &physicalCount, nullptr);
 	if (physicalCount == 0) throw std::runtime_error("No Vulkan devices");
-log << "7" << std::endl;
+//log << "7" << std::endl;
 	std::vector<VkPhysicalDevice> physicalDevices(physicalCount);
 	vkEnumeratePhysicalDevices(instance, &physicalCount, physicalDevices.data());
 //log << "6" << std::endl;
@@ -250,7 +256,7 @@ vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, null
 std::vector<VkSurfaceFormatKHR> formats(formatCount);
 vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, formats.data());
 surfaceFormat = formats[0];
-log << "mid1" << std::endl;
+//log << "mid1" << std::endl;
 VkSwapchainCreateInfoKHR swapInfo{};
 swapInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 swapInfo.surface = surface;
@@ -272,7 +278,7 @@ uint32_t imageCount = 0;
 vkGetSwapchainImagesKHR(device, swapchain, &imageCount, nullptr);
 std::vector<VkImage> images(imageCount);
 vkGetSwapchainImagesKHR(device, swapchain, &imageCount, images.data());
-log << "mid2" << std::endl;
+//log << "mid2" << std::endl;
 std::vector<VkImageView> imageViews(imageCount);
 for (uint32_t i = 0; i < imageCount; i++) {
     VkImageViewCreateInfo view{};
@@ -293,7 +299,7 @@ color.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 color.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 color.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 color.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-log << "mid3" << std::endl;
+//log << "mid3" << std::endl;
 VkAttachmentReference colorRef{};
 colorRef.attachment = 0;
 colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -311,7 +317,7 @@ rp.subpassCount = 1;
 rp.pSubpasses = &subpass;
 
 vkCreateRenderPass(device, &rp, nullptr, &renderPass);
-log << "mid4" << std::endl;
+//log << "mid4" << std::endl;
 std::vector<VkFramebuffer> framebuffers(imageCount);
 for (size_t i = 0; i < imageCount; i++) {
     VkFramebufferCreateInfo fb{};
@@ -376,7 +382,7 @@ rs.polygonMode = VK_POLYGON_MODE_FILL;
 rs.lineWidth = 1.0f;
 rs.cullMode = VK_CULL_MODE_NONE;
 rs.frontFace = VK_FRONT_FACE_CLOCKWISE;
-log << "mid5" << std::endl;
+//log << "mid5" << std::endl;
 VkPipelineMultisampleStateCreateInfo ms{};
 ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
@@ -433,13 +439,16 @@ const char* layers[] = {"VK_LAYER_KHRONOS_validation"};
 createInfo.enabledLayerCount = 1;
 createInfo.ppEnabledLayerNames = layers;
 
-	log << "end init" << std::endl;
+	//log << "end init" << std::endl;
 	uint64_t perfFreq = SDL_GetPerformanceFrequency();
 	uint64_t lastCounter = SDL_GetPerformanceCounter();
 	double fps = 0.0;
 	int frames = 0;
 	double fpsTimer = 0.0;
 	int frameNum = 0;
+    int findex = 0;
+    int cindex = 0;
+	int maxIterations = 256;
 	bool running = true;
 	while (running)
 	{
@@ -477,6 +486,15 @@ createInfo.ppEnabledLayerNames = layers;
 		pc.zoom = zoom;
 		pc.centerX = centerX;
 		pc.centerY = centerY;
+		pc.findex = findex;
+		pc.cindex = cindex;
+		pc.maxIterations = maxIterations;
+        /*pc.zoomhi = (double)zoom_acc;
+        pc.zoomlo = (double)(zoom_acc - (long double)pc.zoomhi);
+        pc.centerXhi = (double)centerX_acc;
+        pc.centerXlo = (double)(centerX_acc - (long double)pc.centerXhi);
+        pc.centerYhi = (double)centerY_acc;
+        pc.centerYlo = (double)(centerY_acc - (long double)pc.centerYhi);*/
 
 		VkViewport vp{};
 		vp.width  = (float)swapExtent.width;
@@ -510,7 +528,7 @@ createInfo.ppEnabledLayerNames = layers;
     		present.pSwapchains = &swapchain;
     		present.pImageIndices = &imageIndex;
     		vkQueuePresentKHR(graphicsQueue, &present);
-		if(!frameNum) log << "end of loop reached, loop number:" << std::endl;
+		//if(!frameNum) log << "end of loop reached, loop number:" << std::endl;
 		//log << frameNum << std::endl;
 		frameNum++;
     		SDL_Event e;
@@ -526,26 +544,46 @@ createInfo.ppEnabledLayerNames = layers;
     					}
     					break;
 				}
-				case SDL_MOUSEWHEEL:
-				{
-    					int mx, my;// Get mouse position in window pixels
-    					SDL_GetMouseState(&mx, &my);
+                case SDL_MOUSEWHEEL:
+                {
+                    int mx, my; // Get mouse position in window pixels
+                    SDL_GetMouseState(&mx, &my);
 
-    					float prevZoom = (float)zoom;
-    					float zoomFactor = (e.wheel.y > 0) ? 0.9f : 1.1f; //Zoom factor
-    					zoom *= zoomFactor;
+                    // Use plain double math (drop long-double accumulators)
+                    double prevZoom = zoom;
+                    double zoomFactor = (e.wheel.y > 0) ? 0.9 : 1.1; // Zoom factor
+                    zoom *= zoomFactor;
 
-    					float nx = (2.0f * mx / windowWidth  - 1.0f); //Convert mouse pixel → normalized screen (-1..1)
-    					float ny = (2.0f * my / windowHeight - 1.0f);
+                    // normalized coordinates (-1..1) with aspect correction
+                    double nx = (2.0 * mx / (double)windowWidth - 1.0);
+                    double ny = (2.0 * my / (double)windowHeight - 1.0);
+                    double aspect = (double)windowWidth / (double)windowHeight;
+                    nx *= aspect;
 
-    					float aspect = (float)windowWidth / (float)windowHeight;
-    					nx *= aspect;
-
-    					float scale = prevZoom - (float)zoom; //Compute world-space delta
-    					centerX += double(nx * scale);
-    					centerY += double(ny * scale);
-    					break;
-				}
+                    // world-space delta applied in double precision
+                    double scale = prevZoom - zoom;
+                    centerX += nx * scale;
+                    centerY += ny * scale;
+                    break;
+                }
+                case SDL_MOUSEBUTTONDOWN:
+                {
+                        int mx = e.button.x;
+                        int my = e.button.y;
+                        double prevZoom = zoom;
+                        double zoomFactor = 1.0;
+                        if (e.button.button == SDL_BUTTON_LEFT) zoomFactor = 0.9;   // zoom in
+                        else if (e.button.button == SDL_BUTTON_RIGHT) zoomFactor = 1.1; // zoom out
+                        zoom *= zoomFactor;
+                        double nx = (2.0 * mx / (double)windowWidth - 1.0);
+                        double ny = (2.0 * my / (double)windowHeight - 1.0);
+                        double aspect = (double)windowWidth / (double)windowHeight;
+                        nx *= aspect;
+                        double scale = prevZoom - zoom;
+                        centerX += nx * scale;
+                        centerY += ny * scale;
+                        break;
+                }
                 case SDL_KEYDOWN: {
                     SDL_Keycode k = e.key.keysym.sym;
                     if (k == SDLK_F11) {
@@ -554,22 +592,22 @@ createInfo.ppEnabledLayerNames = layers;
                         SDL_SetWindowFullscreen(window, fullscreen ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
                     }
                     else if (k == SDLK_LEFT) {
-                        pc.findex = std::max(0, pc.findex - 1);
+                        findex = findex - 1;
                     }
                     else if (k == SDLK_RIGHT) {
-                        pc.findex = pc.findex + 1;
+                        findex = findex + 1;
                     }
                     else if (k == SDLK_UP) {
-                        pc.cindex = pc.cindex + 1;
+                        cindex = cindex + 1;
                     }
                     else if (k == SDLK_DOWN) {
-                        pc.cindex = std::max(0, pc.cindex - 1);
+                        cindex = cindex - 1;
                     }
                     else if (k == SDLK_MINUS || k == SDLK_KP_MINUS) {
-                        pc.maxIterations = std::max(1, pc.maxIterations - 16); // step down
+                        maxIterations = maxIterations - 16; // step down
                     }
                     else if (k == SDLK_EQUALS || k == SDLK_KP_PLUS) {
-                        pc.maxIterations = pc.maxIterations + 16; // step up
+                        maxIterations = maxIterations + 16; // step up
                     }
                     break;
                 }
@@ -594,7 +632,7 @@ createInfo.ppEnabledLayerNames = layers;
     			frames = 0;
     			fpsTimer = 0.0;
 			char title[128];
-			snprintf(title, sizeof(title), "VulkanTest — %.1f FPS, Time = %.3f, Zoom = %.9g, view = x(%.9g),y(%.9g)", fps, pc.time, (double)pc.zoom, (double)pc.centerX, (double)pc.centerY);
+			snprintf(title, sizeof(title), "Test — FPS = %.1f, Index = %.1u, Pallete = %.1u, MaxI = %.1u Time = %.1f Zoom = %.9g, x = %.9g, y = %.9g", fps, pc.findex, pc.cindex, pc.maxIterations, pc.time, (double)pc.zoom,  (double)pc.centerX, (double)pc.centerY);
 			SDL_SetWindowTitle(window, title);
 		}
 	}

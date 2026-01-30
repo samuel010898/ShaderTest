@@ -9,10 +9,13 @@ layout(push_constant) uniform Push {
         float sinTime, cosTime, tanTime;
 	    double zoom;
     	double centerX, centerY;
+        //double zoomhi, zoomlo;
+        //double centerXhi, centerXlo;
+        //double centerYhi, centerYlo;
         int findex, cindex;
         int maxIterations;
 } pc;
-//int MAX_ITER = pc.maxIterations;
+int MAX_ITER = pc.maxIterations;
 float burningShip();
 float tricorn();
 float mandOrbitTrap();
@@ -119,7 +122,7 @@ dvec2 screenCoordD()
 
 float newton()
 {
-    const int    MAX_ITER = 50;
+    //const int    MAX_ITER = 50;
     const double EPS     = 1e-6;
 
     dvec2 z = screenCoordD() * double(pc.zoom) +
@@ -151,7 +154,7 @@ float newton()
 
 float mand()
 {
-    const int    MAX_ITER = 256;
+    //const int    MAX_ITER = 256;
     const double ESCAPE2  = 4.0;
 
     dvec2 p = screenCoordD();
@@ -171,10 +174,182 @@ float mand()
     double mu = double(i) - double(log2(log2(float(mag2))));
     return float(clamp(mu / double(MAX_ITER), 0.0, 1.0));
 }
+/*
+struct dd {
+    double hi;
+    double lo;
+};
+
+dd dd_from_parts(double hi, double lo) {
+    dd r;
+    r.hi = hi;
+    r.lo = lo;
+    return r;
+}
+
+dd dd_from_double(double a) {
+    dd r;
+    r.hi = a;
+    r.lo = 0.0;
+    return r;
+}
+
+double dd_to_double(dd a) {
+    return a.hi + a.lo;
+}
+
+// Accurate two-sum for addition
+dd dd_add(dd a, dd b) {
+    double s = a.hi + b.hi;
+    double v = s - a.hi;
+    double t = ((b.hi - v) + (a.hi - (s - v))) + a.lo + b.lo;
+    double hi = s + t;
+    double lo = t - (hi - s);
+    return dd_from_parts(hi, lo);
+}
+
+dd dd_sub(dd a, dd b) {
+    // a - b = a + (-b)
+    dd nb;
+    nb.hi = -b.hi;
+    nb.lo = -b.lo;
+    return dd_add(a, nb);
+}
+
+// Multiplication using fma for best accuracy
+dd dd_mul(dd a, dd b) {
+    double p = a.hi * b.hi;
+    // error of the hi*hi product + cross terms
+    double err = fma(a.hi, b.hi, -p) + a.hi * b.lo + a.lo * b.hi + a.lo * b.lo;
+    double hi = p + err;
+    double lo = err - (hi - p);
+    return dd_from_parts(hi, lo);
+}
+
+dd dd_mul_double(dd a, double b) {
+    // multiply dd by scalar double b
+    double p = a.hi * b;
+    double err = fma(a.hi, b, -p) + a.lo * b;
+    double hi = p + err;
+    double lo = err - (hi - p);
+    return dd_from_parts(hi, lo);
+}
+
+// Square a dd value
+dd dd_sqr(dd a) {
+    double p = a.hi * a.hi;
+    double err = fma(a.hi, a.hi, -p) + 2.0 * a.hi * a.lo + a.lo * a.lo;
+    double hi = p + err;
+    double lo = err - (hi - p);
+    return dd_from_parts(hi, lo);
+}
+
+// dd complex (pair) helpers
+struct dd2 {
+    dd x;
+    dd y;
+};
+
+dd2 dd2_from_dvec2(dvec2 v) {
+    dd2 r;
+    r.x = dd_from_double(v.x);
+    r.y = dd_from_double(v.y);
+    return r;
+}
+
+dd2 dd2_add(dd2 a, dd2 b) {
+    dd2 r;
+    r.x = dd_add(a.x, b.x);
+    r.y = dd_add(a.y, b.y);
+    return r;
+}
+
+dd2 dd2_mul_complex(dd2 a, dd2 b) {
+    // complex multiply: (a.x + i a.y)*(b.x + i b.y)
+    // real = a.x*b.x - a.y*b.y
+    // imag = a.x*b.y + a.y*b.x
+    dd axbx = dd_mul(a.x, b.x);
+    dd ayby = dd_mul(a.y, b.y);
+    dd real = dd_sub(axbx, ayby);
+
+    dd axby = dd_mul(a.x, b.y);
+    dd aybx = dd_mul(a.y, b.x);
+    dd imag = dd_add(axby, aybx);
+
+    dd2 r;
+    r.x = real;
+    r.y = imag;
+    return r;
+}
+
+dd2 dd2_square(dd2 a) {
+    // (x + i y)^2 = (x^2 - y^2) + i(2xy)
+    dd x2 = dd_sqr(a.x);
+    dd y2 = dd_sqr(a.y);
+    dd real = dd_sub(x2, y2);
+
+    dd xy = dd_mul(a.x, a.y);
+    dd imag = dd_mul_double(xy, 2.0);
+
+    dd2 r;
+    r.x = real;
+    r.y = imag;
+    return r;
+}
+
+double dd2_dot_to_double(dd2 a) {
+    // returns approximate double of dot(a,a) using hi+lo for each
+    double ax = dd_to_double(a.x);
+    double ay = dd_to_double(a.y);
+    return ax*ax + ay*ay;
+}
+
+float doubleMand()
+{
+    const double ESCAPE2 = 4.0;
+
+    // Build high-precision constants from push-constants
+    dd zoom = dd_from_parts(pc.zoomhi, pc.zoomlo);
+    dd centerX = dd_from_parts(pc.centerXhi, pc.centerXlo);
+    dd centerY = dd_from_parts(pc.centerYhi, pc.centerYlo);
+
+    // Map pixel -> complex plane at high precision
+    dvec2 p = screenCoordD(); // returns dvec2
+    // c = p * zoom + center (where p is double, zoom is dd)
+    dd2 c;
+    c.x = dd_add(dd_mul(dd_from_double(p.x), zoom), centerX);
+    c.y = dd_add(dd_mul(dd_from_double(p.y), zoom), centerY);
+
+    dd2 z;
+    z.x = dd_from_double(0.0);
+    z.y = dd_from_double(0.0);
+
+    int maxIter = pc.maxIterations;
+    int i;
+    for (i = 0; i < maxIter; ++i) {
+        // z = z^2 + c using dd2_square
+        dd2 z2 = dd2_square(z);
+        z = dd2_add(z2, c);
+
+        // magnitude test: use combined double approximation for speed
+        double mag2 = dd2_dot_to_double(z);
+        if (mag2 > ESCAPE2) break;
+    }
+
+    if (i == maxIter)
+        return 0.0;
+
+    // Smooth iteration count:
+    // compute final magnitude with better precision by converting dd parts
+    double mag2_hi_lo = dd_to_double(dd_add(dd_sqr(z.x), dd_sqr(z.y))); // slightly more accurate
+    // clamp and compute mu
+    double mu = double(i) - double(log2(log2(float(max(mag2_hi_lo, 1e-300))))); // avoid log(0)
+    return float(clamp(mu / double(maxIter), 0.0, 1.0));
+}*/
 
 float julia(dvec2 c)
 {
-    const int    MAX_ITER = 256;
+    //const int    MAX_ITER = 256;
     const double ESCAPE2  = 4.0;
 
     dvec2 z = screenCoordD() * double(pc.zoom) +
@@ -198,12 +373,13 @@ void main() //|||||||||||||||||||||||||||||MAIN|||||||||||||||||||||||||||||||||
 {
     float v;
 
-    int findex = 0; //pc.findex % 22;
-    int cindex = 1; //pc.cindex % 5;
+    int findex = pc.findex % 22;
+    int cindex = pc.cindex % 5;
 
     switch(findex){
+    //case -1: v = doubleMand(); break;
     case 0: v = mand(); break;
-    case 1: v = julia(dvec2(0.15, 0.7)); break;
+    case 1: v = julia(dvec2(0.3, 0.7)); break;
     case 2: v = burningShip(); break;
     case 3: v = tricorn(); break;
     case 4: v = mandOrbitTrap(); break;
@@ -231,7 +407,7 @@ void main() //|||||||||||||||||||||||||||||MAIN|||||||||||||||||||||||||||||||||
 //||||||||||||||||||||||||||||||||||||END MAIN||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 float burningShip()
 {
-    const int    MAX_ITER = 256;
+    //const int    MAX_ITER = 256;
     const double ESCAPE2  = 4.0;
 
     dvec2 p = screenCoordD();
@@ -254,7 +430,7 @@ float burningShip()
 
 float tricorn()
 {
-    const int    MAX_ITER = 256;
+    //const int    MAX_ITER = 256;
     const double ESCAPE2  = 4.0;
 
     dvec2 p = screenCoordD();
@@ -276,7 +452,7 @@ float tricorn()
 
 float mandOrbitTrap()
 {
-    const int    MAX_ITER = 256;
+    //const int    MAX_ITER = 256;
     const double ESCAPE2  = 4.0;
 
     dvec2 p = screenCoordD();
@@ -297,7 +473,7 @@ float mandOrbitTrap()
 
 float multibrot(double power)
 {
-    const int MAX_ITER = 256;
+    //const int MAX_ITER = 256;
     const double ESCAPE2 = 4.0;
 
     dvec2 c = screenCoordD() * double(pc.zoom) +
@@ -319,7 +495,7 @@ float multibrot(double power)
 
 float perpMand()
 {
-    const int MAX_ITER = 256;
+    //const int MAX_ITER = 256;
     const double ESCAPE2 = 4.0;
 
     dvec2 c = screenCoordD() * double(pc.zoom) +
@@ -340,7 +516,7 @@ float perpMand()
 
 float celticMand()
 {
-    const int MAX_ITER = 256;
+    //const int MAX_ITER = 256;
     const double ESCAPE2 = 4.0;
 
     dvec2 c = screenCoordD() * double(pc.zoom) +
@@ -361,7 +537,7 @@ float celticMand()
 
 float orbitAngle()
 {
-    const int MAX_ITER = 128;
+    //const int MAX_ITER = 128;
 
     dvec2 c = screenCoordD() * double(pc.zoom) +
               dvec2(pc.centerX, pc.centerY);
@@ -380,7 +556,7 @@ float orbitAngle()
 
 float boxTrap()
 {
-    const int MAX_ITER = 256;
+    //const int MAX_ITER = 256;
 
     dvec2 c = screenCoordD() * double(pc.zoom) +
               dvec2(pc.centerX, pc.centerY);
