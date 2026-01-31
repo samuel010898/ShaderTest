@@ -20,7 +20,7 @@ int MAX_ITER = pc.maxIterations;
 float burningShip();
 float tricorn();
 float mandOrbitTrap();
-float multiBrot(double power);
+float multibrot(double power);
 float perpMand();
 float celticMand();
 float orbitAngle();
@@ -52,6 +52,39 @@ vec2 screenCoord()//-1,1
 float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
 }
+
+float hash1(vec2 p)
+{
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 34.345);
+    return fract(p.x * p.y);
+}
+
+float valueNoise(vec2 p)
+{
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+
+    float a = hash1(i);
+    float b = hash1(i + vec2(1,0));
+    float c = hash1(i + vec2(0,1));
+    float d = hash1(i + vec2(1,1));
+
+    vec2 u = f*f*(3.0 - 2.0*f);
+    return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
+}
+
+vec2 curl(vec2 p)
+{
+    float e = 0.001;
+    float n1 = valueNoise(p + vec2(0, e));
+    float n2 = valueNoise(p - vec2(0, e));
+    float n3 = valueNoise(p + vec2(e, 0));
+    float n4 = valueNoise(p - vec2(e, 0));
+
+    return vec2(n1 - n2, n4 - n3);
+}
+
 
 vec3 randColor(vec2 p) {
     return vec3(
@@ -120,13 +153,17 @@ dvec2 screenCoordD()
     return p;
 }
 
+dvec2 windowCoordD()
+{
+    return screenCoordD()*double(pc.zoom)+dvec2(pc.centerX, pc.centerY);
+}
+
 float newton()
 {
     int maxIter = int(ceil(float(MAX_ITER/5.0f)));
     const double EPS     = 1e-6;
 
-    dvec2 z = screenCoordD() * double(pc.zoom) +
-              dvec2(pc.centerX, pc.centerY);
+    dvec2 z = windowCoordD();
 
     int i;
     for (i = 0; i < maxIter; i++) {
@@ -347,11 +384,18 @@ float doubleMand()
     return float(clamp(mu / double(maxIter), 0.0, 1.0));
 }*/
 
-float julia(dvec2 c)
+dvec2 jitter()
+{
+    dvec2 j = dvec2(curl(vec2(screenCoordD().x * 2.0, screenCoordD().y * 2.0)).x, curl(vec2(screenCoordD().x * 2.0, screenCoordD().y * 2.0)).y);
+    j = (j - 0.5);
+    return j;
+}
+
+float julia(dvec2 c, float j)
 {
     //const int    MAX_ITER = 256;
     const double ESCAPE2  = 4.0;
-
+    if (j > 0.0) c += jitter()*j;
     dvec2 z = screenCoordD() * double(pc.zoom) +
               dvec2(pc.centerX, pc.centerY);
 
@@ -385,25 +429,26 @@ void main() //|||||||||||||||||||||||||||||MAIN|||||||||||||||||||||||||||||||||
 {
     float v;
 
-    int findex = pc.findex % 14;
+    int findex = pc.findex % 15;
     int cindex = pc.cindex % 4;
 
     switch(findex){
     //case -1: v = doubleMand(); break;
     case 0: v = mand(); break;
-    case 1: v = julia(dvec2(-0.835, 0.2321)); break;
-    case 2: v = burningShip(); break;
-    case 3: v = tricorn(); break;
-    case 4: v = mandOrbitTrap(); break;
-    case 5: v = newton(); break;
-    //case 6: v = multibrot(double(5)); break;
-    case 7: v = perpMand(); break;
-    case 8: v = celticMand(); break;
-    case 9: v = orbitAngle(); break;
-    case 10: v = boxTrap(); break;
-    case 11: v = ikeda(); break;
-    case 12: v = henon(); break;
-    case 13: v = lissajous(); break;
+    case 1: v = julia(dvec2(0.355, 0.355), 0.0); break;
+    case 2: v = julia(dvec2(0.355, 0.355), 0.01); break;
+    case 3: v = burningShip(); break;
+    case 4: v = tricorn(); break;
+    case 5: v = mandOrbitTrap(); break;
+    case 6: v = newton(); break;
+    case 7: v = multibrot(double(/*pc.sinTime* */5.0)); break;
+    case 8: v = perpMand(); break;
+    case 9: v = celticMand(); break;
+    case 10: v = orbitAngle(); break;
+    case 11: v = boxTrap(); break;
+    case 12: v = ikeda(); break;
+    case 13: v = henon(); break;
+    case 14: v = lissajous(); break;
     //case 20: v = hash(screenCoord() * hash(vec2(pc.time,0.7))); break;
     default: outColor = vec4(1.0,0.0,0.0,1.0); return;
     }
@@ -587,7 +632,7 @@ float boxTrap()
 
 float ikeda()
 {
-    dvec2 z = screenCoordD();
+    dvec2 z = windowCoordD();
     for (int i = 0; i < 20; i++) {
         double t = 0.4 - 6.0 / (1.0 + dot(z,z));
         z = dvec2(
@@ -600,7 +645,7 @@ float ikeda()
 
 float henon()
 {
-    dvec2 z = screenCoordD();
+    dvec2 z = windowCoordD();
     for (int i = 0; i < 20; i++) {
         z = dvec2(
             1.0 - 1.4*z.x*z.x + z.y,
@@ -612,8 +657,8 @@ float henon()
 
 float lissajous()
 {
-    vec2 p = screenCoord();
-    float x = sin(3.0*p.x + pc.time);
-    float y = sin(4.0*p.y);
-    return 0.5 + 0.5*x*y;
+    dvec2 p = windowCoordD();
+    double x = double(sin(float(3.0*p.x + pc.time)));
+    double y = double(sin(float(4.0*p.y)));
+    return float(0.5 + 0.5*x*y);
 }
