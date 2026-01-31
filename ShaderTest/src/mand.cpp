@@ -11,8 +11,8 @@
 #include <sstream>
 
 bool framebufferResized = false;
-uint32_t windowWidth  = 1250;
-uint32_t windowHeight = 670;
+uint32_t windowWidth  = 720;
+uint32_t windowHeight = 480;
 double initTime = 0.0;
 
 void createSwapchain();
