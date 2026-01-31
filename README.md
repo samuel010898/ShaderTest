@@ -8,7 +8,7 @@ Shader program that does some stuff
 - Left/right: switch functions
 - Up/down: switch color palette
 - ,/.: change color scaling
-- -/= or keypad -/+: inc/dec iteration count (default 255)
+- -/= or keypad -/+: inc/dec iteration count (default 255)(try holding it down)
 - Home: reset view
 - F11: toggle fullscreen
 - Escape: quit
@@ -16,28 +16,29 @@ Shader program that does some stuff
 ## How to run
 1. Download repository as ZIP
 2. Extract to its own folder
-3. Run `/run/mand.exe`
+3. Run `/run/screenTest.exe`
 
--Only the contents /run/ are needed to run the program
+- Only the contents of /run/ are needed to run the program
 
 ## Functions
 0: Mandelbrot
 1: Julia
-2: Burning Ship
-3: Tricorn
-4: Mandelbrot Orbit Trap
-5: Newton
-6: Multibrot(broken, placeholder)
-7: Perpendicular Mandelbrot
-8: Celtic Mandelbrot
-9: Mandelbrot Orbit Angle
-10: Mandelbrot Box Trap
-11: Ikeda Map
-12: Henon Map
-13: Lissajous
+2: Custom Julia
+3: Burning Ship
+4: Tricorn
+5: Mandelbrot Orbit Trap
+6: Newton
+7: Multibrot
+8: Perpendicular Mandelbrot
+9: Celtic Mandelbrot
+10: Mandelbrot Orbit Angle
+11: Mandelbrot Box Trap
+12: Ikeda Map
+13: Hénon Map
+14: Lissajous
 
 ## Palettes
 0: Grayscale  
-1: Custom Gradient
-2: HSV
+1: Custom Gradient (0-black-color-white-1)(Default)
+2: HSV (continuous gradient)
 3: Trigonometric
