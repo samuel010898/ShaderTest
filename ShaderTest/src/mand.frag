@@ -226,7 +226,7 @@ float mand()
     int i = 0;
     for (; i < MAX_ITER; ++i)
     {
-        z = dvec2(z.x*z.x - z.y*z.y, 2.0*z.x*z.y) + c;
+        z = dvec2(z.x*z.x-z.y*z.y, 2.0*z.x*z.y)+c; // z=z^2+c
         if (dot(z, z) > ESCAPE2) break;
     }
 

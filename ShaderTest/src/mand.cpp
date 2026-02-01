@@ -15,6 +15,20 @@ uint32_t windowWidth  = 720;
 uint32_t windowHeight = 480;
 double initTime = 0.0;
 
+
+void home();
+struct startupConstants{
+    const double zoom = 1.5;
+    const double centerX = -0.75;
+    const double centerY = 0.0;
+    const int findex = 0;
+    const int cindex = 1;
+    const int sindex = 1;
+    const int maxIterations = 256;
+    const float scale = 1;
+};
+startupConstants init{};
+
 void createSwapchain();
 void createRenderPass();
 void createFramebuffers();
@@ -108,9 +122,9 @@ int main()
 		SDL_WINDOWPOS_CENTERED, windowWidth, windowHeight, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN);
 	if (!window){SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError()); return -1;}
 
-	double zoom = 1.5;
-	double centerX = -0.75;
-	double centerY =  0.0;
+	double zoom = init.zoom;
+	double centerX = init.centerX;
+	double centerY = init.centerY;
 	//double centerXhi, centerXlo = 0.0;
 	//double centerYhi, centerYlo = 0.0;
 	//double zoomhi, zoomlo = 0.0;
@@ -367,24 +381,17 @@ vkAllocateCommandBuffers(device, &alloc, &cmd);
 	int frames = 0;
 	double fpsTimer = 0.0;
 	int frameNum = 0;
-    int findex = 0;
-    int cindex = 1;
-	int sindex = 1;
-	int maxIterations = 256;
-    float scale = 1;
+	int findex = init.findex;
+	int cindex = init.cindex;
+	int sindex = init.sindex;
+	int maxIterations = init.maxIterations;
+	float scale = init.scale;
 	bool running = true;
 	while (running)
 	{
         if (framebufferResized) {
             vkDeviceWaitIdle(device);
-			//destroySwapchain();
-            //vkDestroyPipeline(device, pipeline, nullptr);
-            //vkDestroyPipelineLayout(device, layout, nullptr);
-            //vkDestroyRenderPass(device, renderPass, nullptr);
             recreateSwapchain();
-            //createRenderPass();
-			//createFramebuffers();
-            //createPipeline();
             framebufferResized = false;
             continue;
         }
@@ -461,7 +468,7 @@ vkAllocateCommandBuffers(device, &alloc, &cmd);
     		submit.commandBufferCount = 1;
     		submit.pCommandBuffers = &cmd;
     		vkQueueSubmit(graphicsQueue, 1, &submit, VK_NULL_HANDLE);
-    		vkQueueWaitIdle(graphicsQueue);  // minimal; for real apps you want fences
+    		vkQueueWaitIdle(graphicsQueue);
 
     		// Present
     		VkPresentInfoKHR present{};
@@ -588,12 +595,13 @@ vkAllocateCommandBuffers(device, &alloc, &cmd);
                         }
                     }
                     else if (k == SDLK_HOME) {
-                        zoom = 1.5;
-                        centerX = -0.75;
-                        centerY = 0.0;
-						scale = 1.0f;
-						maxIterations = 256;
-                        cindex = 1;
+                        zoom = init.zoom;
+                        centerX = init.centerX;
+                        centerY = init.centerY;
+                        cindex = init.cindex;
+                        sindex = init.sindex;
+                        maxIterations = init.maxIterations;
+                        scale = init.scale;
 					}
                     else if (k == SDLK_ESCAPE) {
                         running = false;
