@@ -46,10 +46,9 @@ struct PushConstants {
 				float tanTime;
     			double zoom;
     			double centerX, centerY;
-                int findex;
-                int cindex;
+                int findex, cindex, sindex;
 				int maxIterations;
-                float pow;
+                float scale;
                 //double zoomhi, zoomlo;
 				//double centerXhi, centerXlo;
 				//double centerYhi, centerYlo;
@@ -370,8 +369,9 @@ vkAllocateCommandBuffers(device, &alloc, &cmd);
 	int frameNum = 0;
     int findex = 0;
     int cindex = 1;
+	int sindex = 1;
 	int maxIterations = 256;
-    float pow = 1;
+    float scale = 1;
 	bool running = true;
 	while (running)
 	{
@@ -428,8 +428,9 @@ vkAllocateCommandBuffers(device, &alloc, &cmd);
 		pc.centerY = centerY;
 		pc.findex = findex;
 		pc.cindex = cindex;
+        pc.sindex = sindex;
 		pc.maxIterations = maxIterations;
-		pc.pow = pow;
+		pc.scale = scale;
         /*pc.zoomhi = (double)zoom_acc;
         pc.zoomlo = (double)(zoom_acc - (long double)pc.zoomhi);
         pc.centerXhi = (double)centerX_acc;
@@ -556,6 +557,12 @@ vkAllocateCommandBuffers(device, &alloc, &cmd);
                     else if (k == SDLK_DOWN) {
                         cindex = cindex - 1;
                     }
+                    else if (k == SDLK_PAGEUP) {
+                        sindex = sindex + 1;
+                    }
+                    else if (k == SDLK_PAGEDOWN) {
+                        sindex = sindex - 1;
+					}
                     else if (k == SDLK_MINUS || k == SDLK_KP_MINUS) {
                         maxIterations --;
                     }
@@ -563,29 +570,30 @@ vkAllocateCommandBuffers(device, &alloc, &cmd);
                         maxIterations ++;
                     }
                     else if (k == SDLK_COMMA) {
-                        if (pow <= 1)
+                        if (scale <= 1)
                         {
-                            pow *= 0.8f;
+                            scale *= 0.8f;
                         }
                         else {
-                            pow -= 1.0f;
+                            scale -= 1.0f;
                         }
                     }
                     else if (k == SDLK_PERIOD) {
-                        if (pow < 1)
+                        if (scale < 1)
                         {
-                            pow /= 0.8f;
+                            scale /= 0.8f;
                         }
                         else {
-                            pow = floor(pow) + 1;
+                            scale = floor(scale) + 1;
                         }
                     }
                     else if (k == SDLK_HOME) {
                         zoom = 1.5;
                         centerX = -0.75;
                         centerY = 0.0;
-						pow = 1.0f;
+						scale = 1.0f;
 						maxIterations = 256;
+                        cindex = 1;
 					}
                     else if (k == SDLK_ESCAPE) {
                         running = false;
@@ -606,7 +614,7 @@ vkAllocateCommandBuffers(device, &alloc, &cmd);
     			frames = 0;
     			fpsTimer = 0.0;
 			char title[128];
-			snprintf(title, sizeof(title), "Test — FPS = %.1f, Index = %.1u, Pallete = %.1u, MaxI = %.1u Scale = %.9g Time = %.1f Zoom = %.9g, x = %.9g, y = %.9g", fps, findex, cindex, maxIterations, pow, pc.time, (double)zoom, (double)centerX, (double)centerY);
+			snprintf(title, sizeof(title), "Test — FPS = %.1f, Index = %.1u, Pallete = %.1u, MaxI = %.1u Scale = %.9g Time = %.1f Zoom = %.9g, x = %.9g, y = %.9g", fps, findex, cindex, maxIterations, scale, pc.time, (double)zoom, (double)centerX, (double)centerY);
 			SDL_SetWindowTitle(window, title);
 		}
 	}

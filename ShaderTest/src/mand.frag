@@ -12,9 +12,9 @@ layout(push_constant) uniform Push {
         //double zoomhi, zoomlo;
         //double centerXhi, centerXlo;
         //double centerYhi, centerYlo;
-        int findex, cindex;
+        int findex, cindex, sindex;
         int maxIterations;
-        float pow;
+        float scale;
 } pc;
 int MAX_ITER = pc.maxIterations;
 vec3 viridis(float t);
@@ -217,25 +217,29 @@ float newton()
 
 float mand()
 {
-    //const int    MAX_ITER = 256;
-    const double ESCAPE2  = 4.0;
+    const double ESCAPE2 = 16.0;
+    const double logBail = log(float(ESCAPE2));
 
-    dvec2 p = screenCoordD();
-    dvec2 center = dvec2(pc.centerX, pc.centerY);
-    double zoom  = double(pc.zoom);
-    dvec2 c = p * zoom + center;
+    dvec2 c = screenCoordD() * double(pc.zoom) + dvec2(pc.centerX, pc.centerY);
     dvec2 z = dvec2(0.0);
-    int i;
-    for (i = 0; i < MAX_ITER; i++) {
-        // z = z^2 + c
-        z = dvec2(z.x*z.x-z.y*z.y, 2.0*z.x*z.y)+c;
+
+    int i = 0;
+    for (; i < MAX_ITER; ++i)
+    {
+        z = dvec2(z.x*z.x - z.y*z.y, 2.0*z.x*z.y) + c;
         if (dot(z, z) > ESCAPE2) break;
     }
+
     if (i == MAX_ITER) return 0.0;
 
     double mag2 = dot(z, z);
-    double mu = double(i) - double(log2(log2(float(mag2))));
-    return float(clamp(mu / double(MAX_ITER), 0.0, 1.0));
+    double mu = double(i) + 1.0 - log(log(float(mag2)) / float(logBail)) / log(2.0);
+
+    // Normalize using current MAX_ITER so range stretches to use full [0,1]
+    // The +1 or +4 offset helps low-iter views not collapse to near-zero
+    float normalized = float( (mu + 1.0) / double(MAX_ITER + 4.0) );
+    normalized = pow(normalized, 0.65); // slight curve to boost mid-tones
+    return clamp(normalized, 0.0, 1.0);
 }
 /*
 struct dd {
@@ -457,6 +461,7 @@ void main() //|||||||||||||||||||||||||||||MAIN|||||||||||||||||||||||||||||||||
 
     int findex = pc.findex % 33;
     int cindex = pc.cindex % 12;
+    int sindex = pc.sindex % 5;
 
     switch(findex){
     //case -1: v = doubleMand(); break;
@@ -494,9 +499,18 @@ void main() //|||||||||||||||||||||||||||||MAIN|||||||||||||||||||||||||||||||||
     case 31: v = fractal_noise(); break;
     case 32: v = worley(); break;
     //case 99: v = hash(screenCoord() * hash(vec2(pc.time,0.7))); break;
-    default: outColor = vec4(1.0,0.0,0.0,1.0); return;
+    default: outColor = vec4(pc.sinTime,pc.cosTime*0.77,pc.tanTime*0.037,1.0); return;
     }
-    v = remapPower(v, 0.0, 1.0, pc.pow);
+
+    switch(sindex % 5){
+        case 0: v = remapLinear(v, 0.0, 1.0); break;
+        case 1: v = remapPower(v, 0.0, 1.0, pc.scale); break;
+        case 2: v = float(log(1.0 + v * (exp(pc.scale) - 1.0)) / log(exp(pc.scale))); break;
+        case 3: v = float(exp(v * pc.scale) - 1.0) / (exp(pc.scale) - 1.0); break;
+        case 4: v = sqrt(v); break;
+        default: break;
+    }
+
     switch(cindex){
     case 0: outColor = vec4(vec3(v), 1.0); break; //grayscale
     case 1: outColor = vec4(brightnessToColor(v,0.0,1.0), 1.0); break; //custom
@@ -577,7 +591,7 @@ vec3 binary(float t) { // Sharp black-white; for sets like inside/outside in Apo
 }
 
 vec3 histogramEqualized(float t) { // Adaptive contrast; but per-pixel fake—use cumulative dist assumption for fractals (uniform→linear, but pow-like for skewed). Tailored for uneven v like in deep zooms.
-    return vec3(pow(t, 1.0 / pc.pow)); // Inverse power for equalization if input skewed; real histeq needs global stats, impossible in fragment shader without pass.
+    return vec3(pow(t, 1.0 / pc.scale)); // Inverse power for equalization if input skewed; real histeq needs global stats, impossible in fragment shader without pass.
 }
 
 float burningShip()
@@ -878,8 +892,8 @@ double mu = double(i) - log2(log2(float(dot(z, z))));
 return float(clamp(mu / double(MAX_ITER), 0.0, 1.0));
 }
 float nova() {
-dvec2 p = windowCoordD();
-dvec2 z = p * double(pc.zoom) + dvec2(pc.centerX, pc.centerY); // z starts as pixel
+dvec2 z = windowCoordD();
+//dvec2 z = screenCoordD(); // z starts as pixel
 dvec2 c = dvec2(1.0, 0.0); // For z^3 - 1 = 0, adjust c for other polys
 const double relaxation = 1.0;
 const double EPS = 1e-5;
@@ -922,7 +936,7 @@ float gingerbreadman() {
 dvec2 p = windowCoordD();
 dvec2 z = p; // Start from pixel as initial
 double min_dist = 1e9;
-const int iters = 100; // Fixed for attractor approximation
+int iters = MAX_ITER; // Fixed for attractor approximation
 for (int i = 0; i < iters; i++) {
 z = dvec2(1.0 - z.y + abs(z.x), z.x);
 min_dist = min(min_dist, dot(z, z)); // Trap to origin or something
