@@ -1,8 +1,7 @@
 //mand.frag
 #version 450
-
+#include "mand.frag.h"
 layout(location = 0) out vec4 outColor;
-
 layout(push_constant) uniform Push {
     	float width, height;
     	float time;
@@ -16,46 +15,10 @@ layout(push_constant) uniform Push {
         int maxIterations;
         float scale;
 } pc;
-int MAX_ITER = pc.maxIterations;
-vec3 viridis(float t);
-vec3 plasma(float t);
-vec3 magma(float t);
-vec3 hot(float t);
-vec3 coolwarm(float t);
-vec3 twilight(float t);
-vec3 binary(float t);
-vec3 histogramEqualized(float t);
-float burningShip();
-float tricorn();
-float mandOrbitTrap();
-float multibrot(double power);
-float perpMand();
-float celticMand();
-float orbitAngle();
-float boxTrap();
-float ikeda();
-float henon();
-float lissajous();
-float lyapunov();
-float collatz();
-float biomorph();
-float phoenix();
-float magnet1();
-float nova();
-float tetration();
-float gingerbreadman();
-float duffing();
-float tinkerbell();
-float gumowski_mira();
-float peter_de_jong();
-float clifford();
-float hopalong();
-float apollonian_gasket();
-float kleinian();
-float fractal_noise();
-float worley();
-
 vec2 resolution = vec2(pc.width, pc.height);
+int MAX_ITER = pc.maxIterations;
+
+float mand(dvec2 c, dvec2 z);
 
 vec2 pixelCoord()
 {
@@ -110,7 +73,6 @@ vec2 curl(vec2 p)
 
     return vec2(n1 - n2, n4 - n3);
 }
-
 
 vec3 randColor(vec2 p) {
     return vec3(
@@ -179,6 +141,13 @@ dvec2 screenCoordD()
     return p;
 }
 
+dvec2 jitter()
+{
+    dvec2 j = dvec2(curl(vec2(screenCoordD().x * 2.0, screenCoordD().y * 2.0)).x, curl(vec2(screenCoordD().x * 2.0, screenCoordD().y * 2.0)).y);
+    j = (j - 0.5);
+    return j;
+}
+
 dvec2 windowCoordD()
 {
     return screenCoordD()*double(pc.zoom)+dvec2(pc.centerX, pc.centerY);
@@ -187,7 +156,7 @@ dvec2 windowCoordD()
 float newton()
 {
     int maxIter = int(ceil(float(MAX_ITER/5.0f)));
-    const double EPS     = 1e-6;
+    const double EPS = 1e-6;
 
     dvec2 z = windowCoordD();
 
@@ -215,234 +184,6 @@ float newton()
     return float(i) / float(MAX_ITER);
 }
 
-float mand()
-{
-    const double ESCAPE2 = 16.0;
-    const double logBail = log(float(ESCAPE2));
-
-    dvec2 c = screenCoordD() * double(pc.zoom) + dvec2(pc.centerX, pc.centerY);
-    dvec2 z = dvec2(0.0);
-
-    int i = 0;
-    for (; i < MAX_ITER; ++i)
-    {
-        z = dvec2(z.x*z.x-z.y*z.y, 2.0*z.x*z.y)+c; // z=z^2+c
-        if (dot(z, z) > ESCAPE2) break;
-    }
-
-    if (i == MAX_ITER) return 0.0;
-
-    double mag2 = dot(z, z);
-    double mu = double(i) + 1.0 - log(log(float(mag2)) / float(logBail)) / log(2.0);
-
-    // Normalize using current MAX_ITER so range stretches to use full [0,1]
-    // The +1 or +4 offset helps low-iter views not collapse to near-zero
-    float normalized = float( (mu + 1.0) / double(MAX_ITER + 4.0) );
-    normalized = pow(normalized, 0.65); // slight curve to boost mid-tones
-    return clamp(normalized, 0.0, 1.0);
-}
-/*
-struct dd {
-    double hi;
-    double lo;
-};
-
-dd dd_from_parts(double hi, double lo) {
-    dd r;
-    r.hi = hi;
-    r.lo = lo;
-    return r;
-}
-
-dd dd_from_double(double a) {
-    dd r;
-    r.hi = a;
-    r.lo = 0.0;
-    return r;
-}
-
-double dd_to_double(dd a) {
-    return a.hi + a.lo;
-}
-
-// Accurate two-sum for addition
-dd dd_add(dd a, dd b) {
-    double s = a.hi + b.hi;
-    double v = s - a.hi;
-    double t = ((b.hi - v) + (a.hi - (s - v))) + a.lo + b.lo;
-    double hi = s + t;
-    double lo = t - (hi - s);
-    return dd_from_parts(hi, lo);
-}
-
-dd dd_sub(dd a, dd b) {
-    // a - b = a + (-b)
-    dd nb;
-    nb.hi = -b.hi;
-    nb.lo = -b.lo;
-    return dd_add(a, nb);
-}
-
-// Multiplication using fma for best accuracy
-dd dd_mul(dd a, dd b) {
-    double p = a.hi * b.hi;
-    // error of the hi*hi product + cross terms
-    double err = fma(a.hi, b.hi, -p) + a.hi * b.lo + a.lo * b.hi + a.lo * b.lo;
-    double hi = p + err;
-    double lo = err - (hi - p);
-    return dd_from_parts(hi, lo);
-}
-
-dd dd_mul_double(dd a, double b) {
-    // multiply dd by scalar double b
-    double p = a.hi * b;
-    double err = fma(a.hi, b, -p) + a.lo * b;
-    double hi = p + err;
-    double lo = err - (hi - p);
-    return dd_from_parts(hi, lo);
-}
-
-// Square a dd value
-dd dd_sqr(dd a) {
-    double p = a.hi * a.hi;
-    double err = fma(a.hi, a.hi, -p) + 2.0 * a.hi * a.lo + a.lo * a.lo;
-    double hi = p + err;
-    double lo = err - (hi - p);
-    return dd_from_parts(hi, lo);
-}
-
-// dd complex (pair) helpers
-struct dd2 {
-    dd x;
-    dd y;
-};
-
-dd2 dd2_from_dvec2(dvec2 v) {
-    dd2 r;
-    r.x = dd_from_double(v.x);
-    r.y = dd_from_double(v.y);
-    return r;
-}
-
-dd2 dd2_add(dd2 a, dd2 b) {
-    dd2 r;
-    r.x = dd_add(a.x, b.x);
-    r.y = dd_add(a.y, b.y);
-    return r;
-}
-
-dd2 dd2_mul_complex(dd2 a, dd2 b) {
-    // complex multiply: (a.x + i a.y)*(b.x + i b.y)
-    // real = a.x*b.x - a.y*b.y
-    // imag = a.x*b.y + a.y*b.x
-    dd axbx = dd_mul(a.x, b.x);
-    dd ayby = dd_mul(a.y, b.y);
-    dd real = dd_sub(axbx, ayby);
-
-    dd axby = dd_mul(a.x, b.y);
-    dd aybx = dd_mul(a.y, b.x);
-    dd imag = dd_add(axby, aybx);
-
-    dd2 r;
-    r.x = real;
-    r.y = imag;
-    return r;
-}
-
-dd2 dd2_square(dd2 a) {
-    // (x + i y)^2 = (x^2 - y^2) + i(2xy)
-    dd x2 = dd_sqr(a.x);
-    dd y2 = dd_sqr(a.y);
-    dd real = dd_sub(x2, y2);
-
-    dd xy = dd_mul(a.x, a.y);
-    dd imag = dd_mul_double(xy, 2.0);
-
-    dd2 r;
-    r.x = real;
-    r.y = imag;
-    return r;
-}
-
-double dd2_dot_to_double(dd2 a) {
-    // returns approximate double of dot(a,a) using hi+lo for each
-    double ax = dd_to_double(a.x);
-    double ay = dd_to_double(a.y);
-    return ax*ax + ay*ay;
-}
-
-float doubleMand()
-{
-    const double ESCAPE2 = 4.0;
-
-    // Build high-precision constants from push-constants
-    dd zoom = dd_from_parts(pc.zoomhi, pc.zoomlo);
-    dd centerX = dd_from_parts(pc.centerXhi, pc.centerXlo);
-    dd centerY = dd_from_parts(pc.centerYhi, pc.centerYlo);
-
-    // Map pixel -> complex plane at high precision
-    dvec2 p = screenCoordD(); // returns dvec2
-    // c = p * zoom + center (where p is double, zoom is dd)
-    dd2 c;
-    c.x = dd_add(dd_mul(dd_from_double(p.x), zoom), centerX);
-    c.y = dd_add(dd_mul(dd_from_double(p.y), zoom), centerY);
-
-    dd2 z;
-    z.x = dd_from_double(0.0);
-    z.y = dd_from_double(0.0);
-
-    int maxIter = pc.maxIterations;
-    int i;
-    for (i = 0; i < maxIter; ++i) {
-        // z = z^2 + c using dd2_square
-        dd2 z2 = dd2_square(z);
-        z = dd2_add(z2, c);
-
-        // magnitude test: use combined double approximation for speed
-        double mag2 = dd2_dot_to_double(z);
-        if (mag2 > ESCAPE2) break;
-    }
-
-    if (i == maxIter)
-        return 0.0;
-
-    // Smooth iteration count:
-    // compute final magnitude with better precision by converting dd parts
-    double mag2_hi_lo = dd_to_double(dd_add(dd_sqr(z.x), dd_sqr(z.y))); // slightly more accurate
-    // clamp and compute mu
-    double mu = double(i) - double(log2(log2(float(max(mag2_hi_lo, 1e-300))))); // avoid log(0)
-    return float(clamp(mu / double(maxIter), 0.0, 1.0));
-}*/
-
-dvec2 jitter()
-{
-    dvec2 j = dvec2(curl(vec2(screenCoordD().x * 2.0, screenCoordD().y * 2.0)).x, curl(vec2(screenCoordD().x * 2.0, screenCoordD().y * 2.0)).y);
-    j = (j - 0.5);
-    return j;
-}
-
-float julia(dvec2 c, float j)
-{
-    //const int    MAX_ITER = 256;
-    const double ESCAPE2  = 4.0;
-    if (j > 0.0) c += jitter()*j;
-    dvec2 z = screenCoordD() * double(pc.zoom) +
-              dvec2(pc.centerX, pc.centerY);
-
-    int i;
-    for (i = 0; i < MAX_ITER; i++) {
-        z = dvec2(z.x*z.x - z.y*z.y,
-                  2.0*z.x*z.y) + c;
-        if (dot(z, z) > ESCAPE2) break;
-    }
-
-    if (i == MAX_ITER) return 0.0;
-
-    double mag2 = dot(z, z);
-    double mu = double(i) - double(log2(log2(float(mag2))));
-    return float(clamp(mu / double(MAX_ITER), 0.0, 1.0));
-}
-
 float remapLinear(float t, float minT, float maxT)
 {
     if (maxT <= minT) return 0.0;
@@ -454,7 +195,7 @@ float remapPower(float t, float minT, float maxT, float power)
     float x = remapLinear(t, minT, maxT);
     return pow(x, power);
 }
-
+//if (j > 0.0) c += jitter()*j; 
 void main() //|||||||||||||||||||||||||||||MAIN|||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 {
     float v;
@@ -464,10 +205,9 @@ void main() //|||||||||||||||||||||||||||||MAIN|||||||||||||||||||||||||||||||||
     int sindex = pc.sindex % 5;
 
     switch(findex){
-    //case -1: v = doubleMand(); break;
-    case 0: v = mand(); break;
-    case 1: v = julia(dvec2(0.355, 0.355), 0.0); break;
-    case 2: v = julia(dvec2(0.355, 0.355), 0.01); break;
+    case 0: v = mand(windowCoordD(),vec2(0.0)); break;
+    case 1: v = mand(dvec2(0.355, 0.355), windowCoordD()); break;
+    case 2: v = mand(dvec2(-0.70176, -0.3842), windowCoordD()); break;
     case 3: v = burningShip(); break;
     case 4: v = tricorn(); break;
     case 5: v = mandOrbitTrap(); break;
@@ -529,114 +269,71 @@ void main() //|||||||||||||||||||||||||||||MAIN|||||||||||||||||||||||||||||||||
 }
 //||||||||||||||||||||||||||||||||||||END MAIN||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
-vec3 viridis(float t) { // Perceptually uniform, green-yellow-blue; great for quantitative like Lyapunov exponents (stable blue, chaotic yellow). Used in matplotlib since 2015 for ~10^6 scientific plots/year.
-    const vec3 c0 = vec3(0.267,0.004,0.329);
-    const vec3 c1 = vec3(0.282,0.100,0.616);
-    const vec3 c2 = vec3(0.133,0.533,0.898);
-    const vec3 c3 = vec3(0.120,0.812,0.747);
-    const vec3 c4 = vec3(0.666,0.902,0.364);
-    const vec3 c5 = vec3(0.992,0.906,0.145);
-    t = clamp(t,0.0,1.0);
-    if (t < 0.2) return mix(c0, c1, t/0.2);
-    else if (t < 0.4) return mix(c1, c2, (t-0.2)/0.2);
-    else if (t < 0.6) return mix(c2, c3, (t-0.4)/0.2);
-    else if (t < 0.8) return mix(c3, c4, (t-0.6)/0.2);
-    else return mix(c4, c5, (t-0.8)/0.2);
-}
+float mand(dvec2 c, dvec2 z)
+{
+    const double ESCAPE2 = 16.0;
+    const double logBail = log(float(ESCAPE2));
 
-vec3 plasma(float t) { // Purple-magenta-yellow; high contrast for fields like fractal_noise (low purple clouds, high yellow peaks). From matplotlib, inspired by plasma sims at PPPL (densities 10^13-10^14 cm^-3).
-    const vec3 c0 = vec3(0.050,0.029,0.527);
-    const vec3 c1 = vec3(0.366,0.032,0.652);
-    const vec3 c2 = vec3(0.698,0.153,0.416);
-    const vec3 c3 = vec3(0.938,0.418,0.182);
-    const vec3 c4 = vec3(0.988,0.891,0.561);
-    t = clamp(t,0.0,1.0);
-    float s = t * 4.0;
-    int i = int(s);
-    float f = fract(s);
-    if (i == 0) return mix(c0, c1, f);
-    else if (i == 1) return mix(c1, c2, f);
-    else if (i == 2) return mix(c2, c3, f);
-    else return mix(c3, c4, f);
-}
+    //dvec2 c = windowCoordD();
+    //dvec2 z = dvec2(0.0);
 
-vec3 magma(float t) { // Black-purple-red-yellow-white; good for escape-time like Mandelbrot (inside black, escapes to white). Perceptual, used in geophysics (e.g., USGS volcano heat maps, temps 500-1500°C).
-    t = clamp(t,0.0,1.0);
-    vec3 r = vec3(0.001462, 0.000466, 0.013866);
-    vec3 g = vec3(1.66023, -0.845108, 0.179594);
-    vec3 b = vec3(-5.33275, 6.13342, -1.81635);
-    return r + g * t + b * t * t;
-}
+    int i = 0;
+    for (; i < MAX_ITER; ++i)
+    {
+        z = dvec2(z.x*z.x-z.y*z.y, 2.0*z.x*z.y)+c; // z=z^2+c
+        if (dot(z, z) > ESCAPE2) break;
+    }
 
-vec3 hot(float t) { // Black-red-yellow-white; classic for thermal/attractors like Henon (dense hot). From MATLAB, emulates blackbody radiation (e.g., Planck's law at 1000-5000K).
-    t = clamp(t,0.0,1.0);
-    if (t < 0.333) return vec3(3.0*t, 0.0, 0.0);
-    else if (t < 0.666) return vec3(1.0, 3.0*(t-0.333), 0.0);
-    else return vec3(1.0, 1.0, 3.0*(t-0.666));
-}
+    if (i == MAX_ITER) return 0.0;
 
-vec3 coolwarm(float t) { // Blue-white-red diverging; for signed fields like curl in noise (negative blue, positive red). From ColorBrewer, used in MRI scans (e.g., fMRI activation maps, z-scores -3 to 3).
-    t = clamp(t,0.0,1.0);
-    if (t < 0.5) return mix(vec3(0.23,0.299,0.754), vec3(0.865,0.865,0.865), t*2.0);
-    else return mix(vec3(0.865,0.865,0.865), vec3(0.706,0.016,0.150), (t-0.5)*2.0);
-}
-
-vec3 twilight(float t) { // Cyclic purple-blue-green-yellow-purple; for angular like orbitAngle. From seaborn, emulates twilight sky shifts (e.g., Rayleigh scattering at 450-650nm).
-    t = fract(t); // Wrap for cycles
-    return 0.5 + 0.5 * cos(6.28318 * (vec3(0.95,0.7,0.6) + t * vec3(1.0,1.0,1.0)));
-}
-
-vec3 binary(float t) { // Sharp black-white; for sets like inside/outside in Apollonian (t<0.5 black, else white). Minimalist, like binary star maps in astronomy (e.g., Kepler mission, 2,600+ exoplanets confirmed by 2018).
-    return vec3(step(0.5, t));
-}
-
-vec3 histogramEqualized(float t) { // Adaptive contrast; but per-pixel fake—use cumulative dist assumption for fractals (uniform→linear, but pow-like for skewed). Tailored for uneven v like in deep zooms.
-    return vec3(pow(t, 1.0 / pc.scale)); // Inverse power for equalization if input skewed; real histeq needs global stats, impossible in fragment shader without pass.
+    double mag2 = dot(z, z);
+    double mu = double(i) + 1.0 - log(log(float(mag2)) / float(logBail)) / log(2.0);
+    float normalized = float( (mu + 1.0) / double(MAX_ITER + 4.0) );
+    return clamp(normalized, 0.0, 1.0);
 }
 
 float burningShip()
 {
-    //const int    MAX_ITER = 256;
-    const double ESCAPE2  = 4.0;
+    const double ESCAPE2  = 16.0;
+    const double logBail = log(float(ESCAPE2));
 
-    dvec2 p = screenCoordD();
-    dvec2 c = p * double(pc.zoom) + dvec2(pc.centerX, pc.centerY);
+    dvec2 c = windowCoordD();
     dvec2 z = dvec2(0.0);
 
     int i;
     for (i = 0; i < MAX_ITER; i++) {
         z = dvec2(abs(z.x), abs(z.y));
-        z = dvec2(z.x*z.x - z.y*z.y,
-                  2.0*z.x*z.y) + c;
+        z = dvec2(z.x*z.x - z.y*z.y, 2.0*z.x*z.y)+c;
         if (dot(z, z) > ESCAPE2) break;
     }
 
     if (i == MAX_ITER) return 0.0;
 
-    double mu = double(i) - double(log2(log2(float(dot(z,z)))));
-    return float(clamp(mu / double(MAX_ITER), 0.0, 1.0));
+    double mag2 = dot(z, z);
+    double mu = double(i) + 1.0 - log(log(float(mag2)) / float(logBail)) / log(2.0);
+    float normalized = float( (mu + 1.0) / double(MAX_ITER + 4.0) );
+    return clamp(normalized, 0.0, 1.0);
 }
 
 float tricorn()
 {
-    //const int    MAX_ITER = 256;
-    const double ESCAPE2  = 4.0;
-
-    dvec2 p = screenCoordD();
-    dvec2 c = p * double(pc.zoom) + dvec2(pc.centerX, pc.centerY);
+    const double ESCAPE2  = 16.0;
+    const double logBail = log(float(ESCAPE2));
+    dvec2 c = windowCoordD();
     dvec2 z = dvec2(0.0);
 
     int i;
     for (i = 0; i < MAX_ITER; i++) {
-        z = dvec2(z.x*z.x - z.y*z.y,
-                 -2.0*z.x*z.y) + c;
+        z = dvec2(z.x*z.x - z.y*z.y, -2.0*z.x*z.y) + c;
         if (dot(z, z) > ESCAPE2) break;
     }
 
     if (i == MAX_ITER) return 0.0;
 
-    double mu = double(i) - double(log2(log2(float(dot(z,z)))));
-    return float(clamp(mu / double(MAX_ITER), 0.0, 1.0));
+    double mag2 = dot(z, z);
+    double mu = double(i) + 1.0 - log(log(float(mag2)) / float(logBail)) / log(2.0);
+    float normalized = float( (mu + 1.0) / double(MAX_ITER + 4.0) );
+    return clamp(normalized, 0.0, 1.0);
 }
 
 float mandOrbitTrap()
@@ -684,19 +381,14 @@ float multibrot(double power)
 
 float perpMand()
 {
-    //const int MAX_ITER = 256;
-    const double ESCAPE2 = 4.0;
+    const double ESCAPE2 = 16.0;
 
-    dvec2 c = screenCoordD() * double(pc.zoom) +
-              dvec2(pc.centerX, pc.centerY);
+    dvec2 c = windowCoordD();
     dvec2 z = dvec2(0.0);
 
     int i;
     for (i = 0; i < MAX_ITER; i++) {
-        z = dvec2(
-            z.x*z.x - z.y*z.y + c.x,
-            -2.0*z.x*z.y + c.y
-        );
+        z = dvec2(z.x*z.x-z.y*z.y+c.x,-2.0*z.x*z.y+c.y);
         if (dot(z,z) > ESCAPE2) break;
     }
 
@@ -839,14 +531,13 @@ double mu = double(i) - log(log(float(sqrt(dot(z, z))))) / log(2.0);
 return float(clamp(mu / double(MAX_ITER), 0.0, 1.0));
 }
 float biomorph() {
-dvec2 p = windowCoordD();
-dvec2 c = p * double(pc.zoom) + dvec2(pc.centerX, pc.centerY);
+dvec2 c = windowCoordD();
 dvec2 z = dvec2(0.0);
 const double escape_re = 5.0;
 const double escape_im = 5.0;
 int i;
 for (i = 0; i < MAX_ITER; i++) {
-z = dvec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
+z = dvec2(z.x*z.x-z.y*z.y, 2.0*z.x*z.y)+c;
 if (abs(z.x) > escape_re || abs(z.y) > escape_im) break;
 }
 if (i == MAX_ITER) return 0.0;
@@ -1051,28 +742,51 @@ min_dist = min(min_dist, dot(z, z));
 }
 return exp(float(-sqrt(min_dist) * 5.0));
 }
+
 float apollonian_gasket() {
-dvec2 p = windowCoordD();
-const int depth = 10;
-double scale = 1.0;
-dvec2 center = dvec2(0.0);
-double radius = 1.0;
-int level = 0;
-for (int i = 0; i < depth; i++) {
-// Basic 3-circle Apollonian: invert in circles
-dvec2 d = p - center;
-double dist = dot(d, d);
-if (dist < radius * radius) {
-level = i;
-break; // Inside a circle
+    dvec2 p = windowCoordD();
+
+    // generator circles (one bounding circle + two inner generators).
+    const int DEPTH = max(8, max(4, MAX_ITER / 16)); // ensure some minimum depth
+    dvec2 centers[3];
+    centers[0] = dvec2(0.0, 0.0);   // bounding
+    centers[1] = dvec2(0.5, 0.0);   // inner
+    centers[2] = dvec2(-0.25, 0.433); // inner (approx 60°)
+
+    double radii[3];
+    radii[0] = 1.0;   // bounding radius
+    radii[1] = 0.5;   // inner radius (tweak to get better tangency)
+    radii[2] = 0.5;
+
+    int iter = 0;
+
+    // iterate: if point is outside one of the generator circles invert it
+    // in that circle. This produces the nested inversions that form the gasket.
+    for (int i = 0; i < DEPTH; ++i) {
+        bool didInvert = false;
+        for (int j = 0; j < 3; ++j) {
+            dvec2 d = p - centers[j];
+            double dist2 = dot(d, d);
+            double r2 = radii[j] * radii[j];
+
+            // If outside the circle, invert into it.
+            if (dist2 > r2 && dist2 > 0.0) {
+                double k = r2 / dist2;
+                p = centers[j] + k * d;
+                didInvert = true;
+                iter++;
+                break; // invert once per outer loop iteration (typical approach)
+            }
+        }
+        if (!didInvert) {
+            // point already lies inside one of the generator circles
+            break;
+        }
+    }
+
+    return float(iter) / float(DEPTH);
 }
-// Invert and recurse, but simplify to distance field
-double k = radius * radius / dist;
-p = center + k * d;
-scale *= k;
-}
-return float(level) / float(depth);
-}
+
 float kleinian() {
 dvec2 p = windowCoordD();
 const int max_iters = 20;
@@ -1097,6 +811,7 @@ if (length(p) > 2.0) break; // Escape
 }
 return float(i) / float(max_iters);
 }
+
 float fractal_noise() {
 dvec2 p = windowCoordD() * 5.0; // Scale for visibility
 const int octaves = 8;
@@ -1112,6 +827,7 @@ freq *= 2.0;
 }
 return sum / max_sum;
 }
+
 float worley() {
 dvec2 p = windowCoordD() * 5.0;
 const int num_points = 9; // 3x3 grid
@@ -1126,4 +842,69 @@ min_dist = min(min_dist, dist);
 }
 }
 return clamp(min_dist, 0.0, 1.0);
+}
+
+vec3 viridis(float t) {
+    const vec3 c0 = vec3(0.267, 0.004, 0.329);
+    const vec3 c1 = vec3(0.282, 0.100, 0.616);
+    const vec3 c2 = vec3(0.133, 0.533, 0.898);
+    const vec3 c3 = vec3(0.120, 0.812, 0.747);
+    const vec3 c4 = vec3(0.666, 0.902, 0.364);
+    const vec3 c5 = vec3(0.992, 0.906, 0.145);
+    t = clamp(t, 0.0, 1.0);
+    if (t < 0.2) return mix(c0, c1, t / 0.2);
+    else if (t < 0.4) return mix(c1, c2, (t - 0.2) / 0.2);
+    else if (t < 0.6) return mix(c2, c3, (t - 0.4) / 0.2);
+    else if (t < 0.8) return mix(c3, c4, (t - 0.6) / 0.2);
+    else return mix(c4, c5, (t - 0.8) / 0.2);
+}
+
+vec3 plasma(float t) {
+    const vec3 c0 = vec3(0.050, 0.029, 0.527);
+    const vec3 c1 = vec3(0.366, 0.032, 0.652);
+    const vec3 c2 = vec3(0.698, 0.153, 0.416);
+    const vec3 c3 = vec3(0.938, 0.418, 0.182);
+    const vec3 c4 = vec3(0.988, 0.891, 0.561);
+    t = clamp(t, 0.0, 1.0);
+    float s = t * 4.0;
+    int i = int(s);
+    float f = fract(s);
+    if (i == 0) return mix(c0, c1, f);
+    else if (i == 1) return mix(c1, c2, f);
+    else if (i == 2) return mix(c2, c3, f);
+    else return mix(c3, c4, f);
+}
+
+vec3 magma(float t) {
+    t = clamp(t, 0.0, 1.0);
+    vec3 r = vec3(0.001462, 0.000466, 0.013866);
+    vec3 g = vec3(1.66023, -0.845108, 0.179594);
+    vec3 b = vec3(-5.33275, 6.13342, -1.81635);
+    return r + g * t + b * t * t;
+}
+
+vec3 hot(float t) {
+    t = clamp(t, 0.0, 1.0);
+    if (t < 0.333) return vec3(3.0 * t, 0.0, 0.0);
+    else if (t < 0.666) return vec3(1.0, 3.0 * (t - 0.333), 0.0);
+    else return vec3(1.0, 1.0, 3.0 * (t - 0.666));
+}
+
+vec3 coolwarm(float t) {
+    t = clamp(t, 0.0, 1.0);
+    if (t < 0.5) return mix(vec3(0.23, 0.299, 0.754), vec3(0.865, 0.865, 0.865), t * 2.0);
+    else return mix(vec3(0.865, 0.865, 0.865), vec3(0.706, 0.016, 0.150), (t - 0.5) * 2.0);
+}
+
+vec3 twilight(float t) {
+    t = fract(t);
+    return 0.5 + 0.5 * cos(6.28318 * (vec3(0.95, 0.7, 0.6) + t * vec3(1.0, 1.0, 1.0)));
+}
+
+vec3 binary(float t) {
+    return vec3(step(0.5, t));
+}
+
+vec3 histogramEqualized(float t) {
+    return vec3(pow(t, 1.0 / pc.scale));
 }
