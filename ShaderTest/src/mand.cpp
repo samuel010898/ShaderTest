@@ -336,9 +336,9 @@ int main()
 			pc.time += ((float)counter / (float)perfFreq) - (float)initTime;
         }
         if (!pause){
-            sinTime = sinf(pc.time * 0.1f);
-            cosTime = cosf(pc.time * 0.1f);
-            tanTime = tanf(pc.time * 0.1f);
+            sinTime = sinf(pc.time * 0.05f);
+            cosTime = cosf(pc.time * 0.05f);
+            tanTime = tanf(pc.time * 0.05f);
         }
 		pc.sinTime = sinTime;
 		pc.cosTime = cosTime;

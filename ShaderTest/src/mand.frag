@@ -200,7 +200,7 @@ void main() //|||||||||||||||||||||||||||||MAIN|||||||||||||||||||||||||||||||||
 {
     float v;
 
-    int findex = pc.findex % 35;
+    int findex = pc.findex % 46;
     int cindex = pc.cindex % 12;
     int sindex = pc.sindex % 5;
 
@@ -216,32 +216,42 @@ void main() //|||||||||||||||||||||||||||||MAIN|||||||||||||||||||||||||||||||||
     case 7: v = mand(dvec2(0.355, 0.355), windowCoordD(), vec2(0.0), 2.0, true); break; //julia orbit trap
     case 8: v = mand(dvec2(-0.70176, -0.3842), windowCoordD(), vec2(0.0), 2.0, false); break; //julia
     case 9: v = mand(windowCoordD(), dvec2(0.0), vec2(0.0), 2.0, false); break; 
-    case 33: v = newton(); break;
-    case 34: v = multibrot(5.0); break;
-    case 35: v = celticMand(); break;
-    case 10: v = orbitAngle(); break;
-    case 11: v = boxTrap(); break;
-    case 12: v = ikeda(); break;
-    case 13: v = henon(); break;
-    case 14: v = lissajous(); break;
-    case 15: v = lyapunov(); break;
-    case 16: v = collatz(); break;
-    case 17: v = biomorph(); break;
-    case 18: v = phoenix(); break;
-    case 19: v = magnet1(); break;
-    case 20: v = nova(); break;
-    case 21: v = tetration(); break;
-    case 22: v = gingerbreadman(); break;
-    case 23: v = duffing(); break;
-    case 24: v = tinkerbell(); break;
-    case 25: v = gumowski_mira(); break;
-    case 26: v = peter_de_jong(); break;
-    case 27: v = clifford(); break;
-    case 28: v = hopalong(); break;
-    case 29: v = apollonian_gasket(); break;
-    case 30: v = kleinian(); break;
-    case 31: v = fractal_noise(); break;
-    case 32: v = worley(); break;
+    case 10: v = newton(); break;
+    case 11: v = multibrot(5.0); break;
+    case 12: v = celticMand(); break;
+    case 13: v = orbitAngle(); break;
+    case 14: v = boxTrap(); break;
+    case 15: v = ikeda(); break;
+    case 16: v = henon(); break;
+    case 17: v = lissajous(); break;
+    case 18: v = lyapunov(); break;
+    case 19: v = collatz(); break;
+    case 20: v = biomorph(); break;
+    case 21: v = phoenix(); break;
+    case 22: v = magnet1(); break;
+    case 23: v = nova(); break;
+    case 24: v = tetration(); break;
+    case 25: v = gingerbreadman(); break;
+    case 26: v = duffing(); break;
+    case 27: v = tinkerbell(); break;
+    case 28: v = gumowski_mira(); break;
+    case 29: v = peter_de_jong(); break;
+    case 30: v = clifford(); break;
+    case 31: v = hopalong(); break;
+    case 32: v = apollonian_gasket(); break;
+    case 33: v = kleinian(); break;
+    case 34: v = fractal_noise(); break;
+    case 35: v = worley(); break;
+    case 36: v = mand(windowCoordD(), dvec2(0.0), vec2(remapLinear(pc.sinTime, 0, 1)),    2.0,false); break;
+    case 37: v = mand(windowCoordD(), dvec2(0.0), vec2(remapLinear(pc.sinTime, 0, 1), 0), 2.0,false); break;
+    case 38: v = mand(windowCoordD(), dvec2(0.0), vec2(remapLinear(pc.sinTime, 0, 1), 1), 2.0,false); break;
+    case 39: v = mand(windowCoordD(), dvec2(0.0), vec2(0, remapLinear(pc.sinTime, 0, 1)), 2.0,false); break;
+    case 40: v = mand(windowCoordD(), dvec2(0.0), vec2(1, remapLinear(pc.sinTime, 0, 1)), 2.0,false); break;
+    case 41: v = mand(windowCoordD(), dvec2(0.0), vec2(remapLinear(pc.sinTime, 0, 1)),    2.0, true); break;
+    case 42: v = mand(windowCoordD(), dvec2(0.0), vec2(remapLinear(pc.sinTime, 0, 1), 0), 2.0, true); break;
+    case 43: v = mand(windowCoordD(), dvec2(0.0), vec2(remapLinear(pc.sinTime, 0, 1), 1), 2.0, true); break;
+    case 44: v = mand(windowCoordD(), dvec2(0.0), vec2(0, remapLinear(pc.sinTime, 0, 1)), 2.0, true); break;
+    case 45: v = mand(windowCoordD(), dvec2(0.0), vec2(1, remapLinear(pc.sinTime, 0, 1)), 2.0, true); break;
     //case 99: v = hash(screenCoord() * hash(vec2(pc.time,0.7))); break;
     default: outColor = vec4(pc.sinTime,pc.cosTime*0.77,pc.tanTime*0.037,1.0); return;
     }
@@ -542,6 +552,7 @@ if (length(w - z) < EPS) break; // Converged for infinite, but here finite
 double mag = length(w);
 return float(clamp(mag / (conv_radius * 10.0), 0.0, 1.0)); // Normalize; tetration grows fast, so arbitrary scaling
 }
+
 float gingerbreadman() {
 dvec2 p = windowCoordD();
 dvec2 z = p; // Start from pixel as initial
@@ -553,6 +564,7 @@ min_dist = min(min_dist, dot(z, z)); // Trap to origin or something
 }
 return exp(float(-sqrt(min_dist) * 5.0)); // Similar to orbit trap
 }
+
 float duffing() {
 dvec2 p = windowCoordD();
 double a = p.x * 2.0; // Param a around [-2,2]
