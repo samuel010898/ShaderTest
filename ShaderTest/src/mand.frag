@@ -18,7 +18,7 @@ layout(push_constant) uniform Push {
 vec2 resolution = vec2(pc.width, pc.height);
 int MAX_ITER = pc.maxIterations;
 
-float mand(dvec2 c, dvec2 z);
+float mand(dvec2 c, dvec2 z, vec2 absolute, float power, bool orbit);
 
 vec2 pixelCoord()
 {
@@ -200,21 +200,25 @@ void main() //|||||||||||||||||||||||||||||MAIN|||||||||||||||||||||||||||||||||
 {
     float v;
 
-    int findex = pc.findex % 33;
+    int findex = pc.findex % 35;
     int cindex = pc.cindex % 12;
     int sindex = pc.sindex % 5;
 
     switch(findex){
-    case 0: v = mand(windowCoordD(),vec2(0.0)); break;
-    case 1: v = mand(dvec2(0.355, 0.355), windowCoordD()); break;
-    case 2: v = mand(dvec2(-0.70176, -0.3842), windowCoordD()); break;
-    case 3: v = burningShip(); break;
-    case 4: v = tricorn(); break;
-    case 5: v = mandOrbitTrap(); break;
-    case 6: v = newton(); break;
-    case 7: v = multibrot(double(/*pc.sinTime* */5.0)); break;
-    case 8: v = perpMand(); break;
-    case 9: v = celticMand(); break;
+    //case 0: v = multibrot(5.0); break;
+    case 0: v = mand(windowCoordD(), dvec2(0.0), vec2(0.0), 2.0,false); break; //mandelbrot
+    case 1: v = mand(windowCoordD(), dvec2(0.0), vec2(0.0), 2.0, true); break; //mandelbrot orbit trap
+    case 2: v = mand(windowCoordD(), dvec2(0.0), vec2(1.0), 2.0, false); break; //burning ship
+    case 3: v = mand(windowCoordD(), dvec2(0.0), vec2(1.0), 2.0, true); break; //burning ship orbit trap
+    case 4: v = mand(windowCoordD(), dvec2(0.0), vec2(0.0), -2.0,false); break; //tricorn
+    case 5: v = mand(windowCoordD(), dvec2(0.0), vec2(0.0), -2.0, true); break; //tricorn orbit trap
+    case 6: v = mand(dvec2(0.355, 0.355), windowCoordD(), vec2(0.0), 2.0, false); break; //julia
+    case 7: v = mand(dvec2(0.355, 0.355), windowCoordD(), vec2(0.0), 2.0, true); break; //julia orbit trap
+    case 8: v = mand(dvec2(-0.70176, -0.3842), windowCoordD(), vec2(0.0), 2.0, false); break; //julia
+    case 9: v = mand(windowCoordD(), dvec2(0.0), vec2(0.0), 2.0, false); break; 
+    case 33: v = newton(); break;
+    case 34: v = multibrot(5.0); break;
+    case 35: v = celticMand(); break;
     case 10: v = orbitAngle(); break;
     case 11: v = boxTrap(); break;
     case 12: v = ikeda(); break;
@@ -242,7 +246,7 @@ void main() //|||||||||||||||||||||||||||||MAIN|||||||||||||||||||||||||||||||||
     default: outColor = vec4(pc.sinTime,pc.cosTime*0.77,pc.tanTime*0.037,1.0); return;
     }
 
-    switch(sindex % 5){
+    switch(sindex){
         case 0: v = remapLinear(v, 0.0, 1.0); break;
         case 1: v = remapPower(v, 0.0, 1.0, pc.scale); break;
         case 2: v = float(log(1.0 + v * (exp(pc.scale) - 1.0)) / log(exp(pc.scale))); break;
@@ -269,101 +273,32 @@ void main() //|||||||||||||||||||||||||||||MAIN|||||||||||||||||||||||||||||||||
 }
 //||||||||||||||||||||||||||||||||||||END MAIN||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
-float mand(dvec2 c, dvec2 z)
+float mand(dvec2 c, dvec2 z, vec2 absolute, float power, bool orbit)
 {
     const double ESCAPE2 = 16.0;
     const double logBail = log(float(ESCAPE2));
-
-    //dvec2 c = windowCoordD();
-    //dvec2 z = dvec2(0.0);
-
+    double minDist = 1e9;
     int i = 0;
     for (; i < MAX_ITER; ++i)
     {
-        z = dvec2(z.x*z.x-z.y*z.y, 2.0*z.x*z.y)+c; // z=z^2+c
-        if (dot(z, z) > ESCAPE2) break;
-    }
-
-    if (i == MAX_ITER) return 0.0;
-
-    double mag2 = dot(z, z);
-    double mu = double(i) + 1.0 - log(log(float(mag2)) / float(logBail)) / log(2.0);
-    float normalized = float( (mu + 1.0) / double(MAX_ITER + 4.0) );
-    return clamp(normalized, 0.0, 1.0);
-}
-
-float burningShip()
-{
-    const double ESCAPE2  = 16.0;
-    const double logBail = log(float(ESCAPE2));
-
-    dvec2 c = windowCoordD();
-    dvec2 z = dvec2(0.0);
-
-    int i;
-    for (i = 0; i < MAX_ITER; i++) {
-        z = dvec2(abs(z.x), abs(z.y));
-        z = dvec2(z.x*z.x - z.y*z.y, 2.0*z.x*z.y)+c;
-        if (dot(z, z) > ESCAPE2) break;
-    }
-
-    if (i == MAX_ITER) return 0.0;
-
-    double mag2 = dot(z, z);
-    double mu = double(i) + 1.0 - log(log(float(mag2)) / float(logBail)) / log(2.0);
-    float normalized = float( (mu + 1.0) / double(MAX_ITER + 4.0) );
-    return clamp(normalized, 0.0, 1.0);
-}
-
-float tricorn()
-{
-    const double ESCAPE2  = 16.0;
-    const double logBail = log(float(ESCAPE2));
-    dvec2 c = windowCoordD();
-    dvec2 z = dvec2(0.0);
-
-    int i;
-    for (i = 0; i < MAX_ITER; i++) {
-        z = dvec2(z.x*z.x - z.y*z.y, -2.0*z.x*z.y) + c;
-        if (dot(z, z) > ESCAPE2) break;
-    }
-
-    if (i == MAX_ITER) return 0.0;
-
-    double mag2 = dot(z, z);
-    double mu = double(i) + 1.0 - log(log(float(mag2)) / float(logBail)) / log(2.0);
-    float normalized = float( (mu + 1.0) / double(MAX_ITER + 4.0) );
-    return clamp(normalized, 0.0, 1.0);
-}
-
-float mandOrbitTrap()
-{
-    //const int    MAX_ITER = 256;
-    const double ESCAPE2  = 4.0;
-
-    dvec2 p = screenCoordD();
-    dvec2 c = p * double(pc.zoom) + dvec2(pc.centerX, pc.centerY);
-    dvec2 z = dvec2(0.0);
-
-    double minDist = 1e9;
-
-    for (int i = 0; i < MAX_ITER; i++) {
-        z = dvec2(z.x*z.x - z.y*z.y,
-                  2.0*z.x*z.y) + c;
+        z = mix(z, dvec2(abs(z.x), abs(z.y)), absolute);
+        z = dvec2(z.x*z.x-z.y*z.y, power*z.x*z.y)+c; // z=z^2+c
         minDist = min(minDist, length(z));
-        if (dot(z,z) > ESCAPE2) break;
+        if (dot(z, z) > ESCAPE2) break;
     }
-
-    return exp(float(-minDist * 5.0));
+    if (orbit) return exp(float(-minDist * 5.0));
+    if (i == MAX_ITER) return 0.0;
+    double mag2 = dot(z, z);
+    double mu = double(i) + 1.0 - log(log(float(mag2)) / float(logBail)) / log(2.0);
+    float normalized = float( (mu + 1.0) / double(MAX_ITER + 4.0) );
+    return clamp(normalized, 0.0, 1.0);
 }
 
-float multibrot(double power)
+float multibrot(float power)
 {
-    //const int MAX_ITER = 256;
-    const double ESCAPE2 = 4.0;
-
-    dvec2 c = screenCoordD() * double(pc.zoom) +
-              dvec2(pc.centerX, pc.centerY);
+    const double ESCAPE2 = 16.0;
+    const double logBail = log(float(ESCAPE2));
+    dvec2 c = windowCoordD();
     dvec2 z = dvec2(0.0);
 
     int i;
@@ -373,22 +308,6 @@ float multibrot(double power)
         r = pow(float(r), float(power));
         a *= power;
         z = dvec2(r*cos(float(a)), r*sin(float(a))) + c;
-        if (dot(z,z) > ESCAPE2) break;
-    }
-
-    return float(i) / float(MAX_ITER);
-}
-
-float perpMand()
-{
-    const double ESCAPE2 = 16.0;
-
-    dvec2 c = windowCoordD();
-    dvec2 z = dvec2(0.0);
-
-    int i;
-    for (i = 0; i < MAX_ITER; i++) {
-        z = dvec2(z.x*z.x-z.y*z.y+c.x,-2.0*z.x*z.y+c.y);
         if (dot(z,z) > ESCAPE2) break;
     }
 

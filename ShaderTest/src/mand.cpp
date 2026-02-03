@@ -25,10 +25,8 @@ struct startupConstants{
     const float scale = 1;
 };
 startupConstants init{};
-void createSwapchain();
 void createRenderPass();
 void createFramebuffers();
-void createPipeline();
 void destroySwapchain();
 void recreateSwapchain();
 VkDevice device;
@@ -113,6 +111,10 @@ int main()
     int sindex = init.sindex;
     int maxIterations = init.maxIterations;
     float scale = init.scale;
+    float sinTime;
+	float cosTime;
+	float tanTime;
+	bool pause = false;
 
     // --- Vulkan Instance ---
     VkInstance instance;
@@ -333,9 +335,14 @@ int main()
         else {
 			pc.time += ((float)counter / (float)perfFreq) - (float)initTime;
         }
-		pc.sinTime = sinf(pc.time * 0.5f);
-		pc.cosTime = cosf(pc.time * 0.5f);
-		pc.tanTime = tanf(pc.time * 0.5f);
+        if (!pause){
+            sinTime = sinf(pc.time * 0.1f);
+            cosTime = cosf(pc.time * 0.1f);
+            tanTime = tanf(pc.time * 0.1f);
+        }
+		pc.sinTime = sinTime;
+		pc.cosTime = cosTime;
+		pc.tanTime = tanTime;
 		pc.zoom = zoom;
 		pc.centerX = centerX;
 		pc.centerY = centerY;
@@ -509,6 +516,9 @@ int main()
                         maxIterations = init.maxIterations;
                         scale = init.scale;
 					}
+                    else if (k == SDLK_SPACE) {
+                        pause = !pause;
+                    }
                     else if (k == SDLK_ESCAPE) {
                         running = false;
 					}
@@ -545,11 +555,6 @@ int main()
 	return 0;
 }
 
-// functions
-void createSwapchain()
-{
-    // Implementation omitted for brevity
-}
 void createFramebuffers()
 {
     for (auto fb : framebuffers)
@@ -587,10 +592,6 @@ void createFramebuffers()
         vkCreateFramebuffer(device, &fb, nullptr, &framebuffers[i]);
     }
 }
-void createPipeline()
-{
-	// Implementation omitted for brevity
-}
 void destroySwapchain()
 {
     for (auto fb : framebuffers)
@@ -601,42 +602,22 @@ void destroySwapchain()
     imageViews.clear();
     vkDestroySwapchainKHR(device, swapchain, nullptr);
 }
-
 void recreateSwapchain()
 {
-    // Wait until window is non-zero sized
     while (windowWidth == 0 || windowHeight == 0) {
         SDL_Event e;
         SDL_WaitEvent(&e);
     }
-
     vkDeviceWaitIdle(device);
-
-    // Destroy framebuffers
-    for (auto fb : framebuffers)
-        vkDestroyFramebuffer(device, fb, nullptr);
+    for (auto fb : framebuffers) vkDestroyFramebuffer(device, fb, nullptr);
     framebuffers.clear();
-
-    // Destroy image views
-    for (auto iv : imageViews)
-        vkDestroyImageView(device, iv, nullptr);
+    for (auto iv : imageViews) vkDestroyImageView(device, iv, nullptr);
     imageViews.clear();
-
-    // Destroy swapchain
     vkDestroySwapchainKHR(device, swapchain, nullptr);
-
-    // Re-query surface capabilities
     VkSurfaceCapabilitiesKHR caps;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &caps);
-
-    if (caps.currentExtent.width != UINT32_MAX) {
-        swapExtent = caps.currentExtent;
-    }
-    else {
-        swapExtent.width = windowWidth;
-        swapExtent.height = windowHeight;
-    }
-
+    if (caps.currentExtent.width != UINT32_MAX) swapExtent = caps.currentExtent;
+    else{swapExtent.width = windowWidth; swapExtent.height = windowHeight;}
     VkSwapchainCreateInfoKHR swapInfo{};
     swapInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     swapInfo.surface = surface;
@@ -651,14 +632,11 @@ void recreateSwapchain()
     swapInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     swapInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR;
     swapInfo.clipped = VK_TRUE;
-
     vkCreateSwapchainKHR(device, &swapInfo, nullptr, &swapchain);
-
     uint32_t imageCount;
     vkGetSwapchainImagesKHR(device, swapchain, &imageCount, nullptr);
     images.resize(imageCount);
     vkGetSwapchainImagesKHR(device, swapchain, &imageCount, images.data());
-
     imageViews.resize(imageCount);
     for (uint32_t i = 0; i < imageCount; i++) {
         VkImageViewCreateInfo view{};
@@ -671,7 +649,6 @@ void recreateSwapchain()
         view.subresourceRange.layerCount = 1;
         vkCreateImageView(device, &view, nullptr, &imageViews[i]);
     }
-
     framebuffers.resize(imageCount);
     for (size_t i = 0; i < imageCount; i++) {
         VkFramebufferCreateInfo fb{};
